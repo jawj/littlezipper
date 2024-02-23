@@ -1,9 +1,10 @@
 {
   "name": "zipkiss",
   "version": "0.1.0",
-  "description": "Extemely simple zip-file creation",
+  "description": "Extremely simple .zip file creation with no dependencies",
   "main": "index.js",
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
