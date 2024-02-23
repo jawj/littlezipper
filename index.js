@@ -7,15 +7,16 @@ exports.createZip = void 0;
 const crc32_1 = require("./crc32");
 const hasCompressionStreams = typeof CompressionStream !== 'undefined', textEncoder = new TextEncoder(), sum = (ns) => ns.reduce((memo, n) => memo + n, 0);
 async function createZip(inputFiles, compressWhenPossible = true) {
-    const deflate = hasCompressionStreams && compressWhenPossible, localHeaderOffsets = [], fileNames = Object.keys(inputFiles).map(name => textEncoder.encode(name)), fileData = Object.values(inputFiles).map(data => typeof data === 'string' ? textEncoder.encode(data) :
+    var _a;
+    const deflate = hasCompressionStreams && compressWhenPossible, localHeaderOffsets = [], fileNames = inputFiles.map(file => textEncoder.encode(file.name)), fileData = inputFiles.map(({ data }) => typeof data === 'string' ? textEncoder.encode(data) :
         data instanceof ArrayBuffer ? new Uint8Array(data) : data), 
     // worst-case data expansion is 5b per 32K: https://www.w3.org/Graphics/PNG/RFC-1951
-    maxCompressedSizes = fileData.map(data => data.byteLength + 5 * Math.ceil(data.byteLength / 32768)), numFiles = fileNames.length, maxSize = 17 + // end of central directory record
-        numFiles * 31 + // local file headers (minus file names)
-        numFiles * 47 + // central file headers (minus file names)
-        sum(fileNames.map(name => name.byteLength)) * 2 + // file names (in local + central headers)
+    maxCompressedSizes = fileData.map(data => data.byteLength + 5 * Math.ceil(data.byteLength / 32768)), numFiles = fileNames.length, maxSize = 22 + // end of central directory record
+        numFiles * 30 + // local file headers (minus file names)
+        numFiles * 46 + // central directory file headers (minus file names)
+        sum(fileNames.map(name => name.byteLength)) * 2 + // file names (in local + central directory headers)
         sum(maxCompressedSizes), // file data
-    zip = new Uint8Array(maxSize), now = new Date(), sec = now.getSeconds(), min = now.getMinutes(), hr = now.getHours(), day = now.getDate(), mth = now.getMonth() + 1, yr = now.getFullYear(), mtime = Math.floor(sec / 2) + (min << 5) + (hr << 11), mdate = day + (mth << 5) + ((yr - 1980) << 9), mtimeLo = mtime & 0xff, mtimeHi = mtime >> 8, mdateLo = mdate & 0xff, mdateHi = mdate >> 8;
+    zip = new Uint8Array(maxSize), now = new Date();
     let i = 0; // zip byte index
     // files with local headers
     for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
@@ -42,6 +43,7 @@ async function createZip(inputFiles, compressWhenPossible = true) {
             compressed = uncompressed;
             compressedSize = uncompressedSize;
         }
+        const lastModified = (_a = inputFiles[fileIndex].lastModified) !== null && _a !== void 0 ? _a : now, sec = lastModified.getSeconds(), min = lastModified.getMinutes(), hr = lastModified.getHours(), day = lastModified.getDate(), mth = lastModified.getMonth() + 1, yr = lastModified.getFullYear(), mtime = Math.floor(sec / 2) + (min << 5) + (hr << 11), mdate = day + (mth << 5) + ((yr - 1980) << 9), mtimeLo = mtime & 0xff, mtimeHi = mtime >> 8, mdateLo = mdate & 0xff, mdateHi = mdate >> 8;
         // signature
         zip[i++] = 0x50; // P
         zip[i++] = 0x4b; // K
