@@ -52,35 +52,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       uncompressed = fileData[fileIndex],
       uncompressedSize = uncompressed.byteLength,
       crc = crc32(uncompressed),
-      maxCompressedSize = maxCompressedSizes[fileIndex];
-
-    if (deflate) {
-      compressed = new Uint8Array(maxCompressedSize);
-      compressedSize = 0;
-
-      const
-        cstream = new CompressionStream('deflate-raw'),
-        writer = cstream.writable.getWriter(),
-        reader = cstream.readable.getReader();
-
-      await writer.ready;
-      await writer.write(uncompressed);
-      await writer.ready;
-      await writer.close();
-
-      for (; ;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        compressed.set(value, compressedSize);
-        compressedSize += value.length;
-      }
-
-    } else {
-      compressed = uncompressed;
-      compressedSize = uncompressedSize;
-    }
-
-    const
+      maxCompressedSize = maxCompressedSizes[fileIndex],
       lastModified = inputFiles[fileIndex].lastModified ?? now,
       sec = lastModified.getSeconds(),
       min = lastModified.getMinutes(),
@@ -89,11 +61,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       mth = lastModified.getMonth() + 1,
       yr = lastModified.getFullYear(),
       mtime = Math.floor(sec / 2) + (min << 5) + (hr << 11),
-      mdate = day + (mth << 5) + ((yr - 1980) << 9),
-      mtimeLo = mtime & 0xff,
-      mtimeHi = mtime >> 8,
-      mdateLo = mdate & 0xff,
-      mdateHi = mdate >> 8;
+      mdate = day + (mth << 5) + ((yr - 1980) << 9);
 
     // signature
     zip[i++] = 0x50; // P
@@ -110,20 +78,18 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     zip[i++] = deflate ? 8 : 0;  // deflate or none
     zip[i++] = 0;
     // mtime, mdate
-    zip[i++] = mtimeLo;
-    zip[i++] = mtimeHi;
-    zip[i++] = mdateLo;
-    zip[i++] = mdateHi;
+    zip[i++] = mtime & 0xff;
+    zip[i++] = mtime >> 8;
+    zip[i++] = mdate & 0xff;
+    zip[i++] = mdate >> 8;
     // crc32
     zip[i++] = crc & 0xff;
     zip[i++] = (crc >> 8) & 0xff;
     zip[i++] = (crc >> 16) & 0xff;
     zip[i++] = (crc >> 24);
-    // compressed size
-    zip[i++] = compressedSize & 0xff;
-    zip[i++] = (compressedSize >> 8) & 0xff;
-    zip[i++] = (compressedSize >> 16) & 0xff;
-    zip[i++] = (compressedSize >> 24);
+    // compressed size (come back later)
+    let compressedSizeOffset = i;
+    i += 4;
     // uncompressed size
     zip[i++] = uncompressedSize & 0xff;
     zip[i++] = (uncompressedSize >> 8) & 0xff;
@@ -138,9 +104,39 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     // file name
     zip.set(fileName, i);
     i += fileNameSize;
+
     // compressed data
-    zip.set(compressed.subarray(0, compressedSize), i);
-    i += compressedSize;
+    if (deflate) {
+      const
+        cstream = new CompressionStream('deflate-raw'),
+        writer = cstream.writable.getWriter(),
+        reader = cstream.readable.getReader();
+
+      await writer.ready;
+      await writer.write(uncompressed);
+      await writer.ready;
+      await writer.close();
+
+      compressedSize = 0;
+      for (; ;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        zip.set(value, i);
+        compressedSize += value.length;
+        i += value.length;
+      }
+
+    } else {
+      zip.set(uncompressed, i);
+      compressedSize = uncompressedSize;
+      i += uncompressedSize;
+    }
+    
+    // compressed size
+    zip[compressedSizeOffset++] = compressedSize & 0xff;
+    zip[compressedSizeOffset++] = (compressedSize >> 8) & 0xff;
+    zip[compressedSizeOffset++] = (compressedSize >> 16) & 0xff;
+    zip[compressedSizeOffset++] = (compressedSize >> 24);
   }
 
   // central directory
