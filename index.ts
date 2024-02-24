@@ -42,17 +42,12 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
   for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
     localHeaderOffsets[fileIndex] = i;
 
-    let
-      compressed: Uint8Array,
-      compressedSize: number;
-
     const
       fileName = fileNames[fileIndex],
       fileNameSize = fileName.byteLength,
       uncompressed = fileData[fileIndex],
       uncompressedSize = uncompressed.byteLength,
       crc = crc32(uncompressed),
-      maxCompressedSize = maxCompressedSizes[fileIndex],
       lastModified = inputFiles[fileIndex].lastModified ?? now,
       sec = lastModified.getSeconds(),
       min = lastModified.getMinutes(),
@@ -82,11 +77,13 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     zip[i++] = mtime >> 8;
     zip[i++] = mdate & 0xff;
     zip[i++] = mdate >> 8;
-    // crc32
-    zip[i++] = crc & 0xff;
-    zip[i++] = (crc >> 8) & 0xff;
-    zip[i++] = (crc >> 16) & 0xff;
-    zip[i++] = (crc >> 24);
+    // crc32 (come back later)
+    let crcOffset = i;
+    i += 4;
+    // zip[i++] = crc & 0xff;
+    // zip[i++] = (crc >> 8) & 0xff;
+    // zip[i++] = (crc >> 16) & 0xff;
+    // zip[i++] = (crc >> 24);
     // compressed size (come back later)
     let compressedSizeOffset = i;
     i += 4;
@@ -106,6 +103,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     i += fileNameSize;
 
     // compressed data
+    let compressedSize: number;
     if (deflate) {
       const
         cstream = new CompressionStream('deflate-raw'),
@@ -117,10 +115,90 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       await writer.ready;
       await writer.close();
 
-      compressedSize = 0;
+      enum S {
+        //  note: the Fx values must be the correct bitmasks for the flag byte
+        None = 0,
+        Start = 1,
+        Fhcrc16 = 2,
+        Fextra = 4,
+        Fname = 8,
+        Fcomment = 16,
+        Compressed = 64,
+      }
+
+      let
+        bytesProcessed = 0,
+        compressedSize = 0,
+        gzipDataState = S.Start,
+        fhcrc16 = S.None,
+        fextra = S.None,
+        fname = S.None,
+        fcomment = S.None,
+        xlenBytesRead = 0,
+        xlen = 0;
+
       for (; ;) {
         const { done, value } = await reader.read();
         if (done) break;
+
+        // ignore bytes 0, 1, 2
+        // check byte 3 flags FEXTRA, FNAME, FCOMMENT
+        // if FEXTRA: read 2 bytes XLEN, then skip that many
+        // if FNAME: read to next null byte
+        // if COMMENT: ditto
+        // read next 2 bytes (CRC16)
+        // rest of bytes are compressed data
+        // except final 4 bytes (ignore)
+        // and previous 4 bytes (CRC32)
+
+        const
+          windowStart = bytesProcessed,
+          windowEnd = bytesProcessed + value.byteLength;
+
+        for (let j = windowStart; j < windowEnd; j++) {
+          switch (gzipDataState) {
+            case S.Start:
+              if (j === 3) {
+                const flag = value[j - windowStart] as number;
+                fhcrc16 = flag & S.Fhcrc16;
+                fextra = flag & S.Fextra;
+                fname = flag & S.Fname;
+                fcomment = flag & S.Fcomment;
+
+              } else if (j === 9) {
+                gzipDataState = fextra || fname || fcomment || fhcrc16 || S.Compressed;
+              }
+              break;
+
+            case S.Fextra:
+              if (xlenBytesRead === 0) xlen = value[j - windowStart];
+              else if (xlenBytesRead === 1) xlen |= value[j - windowStart] << 8;
+              else if (xlenBytesRead === xlen) {
+                gzipDataState = fname || fcomment || fhcrc16 || S.Compressed;
+              }
+              xlenBytesRead += 1;
+              break;
+
+            case S.Fname:
+              if (value[j - windowStart] === 0) {
+                gzipDataState = fcomment || fhcrc16 || S.Compressed;
+              } 
+              break;
+
+            case S.Fcomment:
+              if (value[j - windowStart] === 0) {
+                gzipDataState = fhcrc16 || S.Compressed;
+              } 
+              break;
+
+            case S.Fhcrc16:
+              
+          }
+
+        }
+
+        bytesProcessed = windowEnd;
+
         zip.set(value, i);
         compressedSize += value.length;
         i += value.length;
@@ -131,8 +209,8 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       compressedSize = uncompressedSize;
       i += uncompressedSize;
     }
-    
-    // compressed size
+
+    // fill in compressed size
     zip[compressedSizeOffset++] = compressedSize & 0xff;
     zip[compressedSizeOffset++] = (compressedSize >> 8) & 0xff;
     zip[compressedSizeOffset++] = (compressedSize >> 16) & 0xff;

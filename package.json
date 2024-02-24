@@ -4,7 +4,8 @@
   "description": "Extremely simple .zip file creation with no dependencies",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "check": "tsc --noEmit",
+    "build": "esbuild index.ts --bundle --format=cjs --minify --line-limit=80 --outfile=index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -15,6 +16,7 @@
   "author": "George MacKerron",
   "license": "MIT",
   "devDependencies": {
+    "esbuild": "^0.20.1",
     "typescript": "^5.3.3"
   }
 }
