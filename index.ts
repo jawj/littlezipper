@@ -45,7 +45,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
 
   let b = 0;  // zip byte index
 
-  // files + local headers
+  // write local headers and compressed files
   for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
     localHeaderOffsets[fileIndex] = b;
 
@@ -169,12 +169,11 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       compressedSize = b - compressedStart;
 
     } else {
-
       zip.set(uncompressed, b);
       b += uncompressedSize;
       compressedSize = uncompressedSize;
 
-      // now calculate CRC
+      // now calculate CRC ourselves
       const crc = crc32(uncompressed);
       zip[b++] = crc & 0xff;
       zip[b++] = (crc >> 8) & 0xff;
@@ -189,7 +188,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     zip[compressedSizeOffset++] = (compressedSize >> 24);
   }
 
-  // central directory
+  // write central directory
   const centralDirectoryOffset = b;
   for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
     const
@@ -223,7 +222,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     b += fileNameSize;
   }
 
-  // end of central directory record
+  // write end-of-central-directory record
   // signature
   zip[b++] = 0x50; // P
   zip[b++] = 0x4b; // K
