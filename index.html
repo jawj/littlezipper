@@ -1,0 +1,37 @@
+<div id='dropbox' style='width: 200px; height: 200px; border: 1px #888 solid; background: #ddd;'></div>
+<a id='link' href='#' download='archive.zip' style='display: none;'>Download</a>
+
+<script type='module'>
+  import { createZip } from './index.mjs';
+
+  const dropbox = document.getElementById('dropbox');
+  const link = document.getElementById('link');
+
+  dropbox.addEventListener('dragenter', stop, false);
+  dropbox.addEventListener('dragover', stop, false);
+  dropbox.addEventListener('drop', drop, false);
+
+  function stop(e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+
+  async function drop(e) {
+    stop(e);
+    const files = e.dataTransfer.files;
+    const fileData = await Promise.all([...files].map(async file => {
+      const data = await file.arrayBuffer();
+      return {
+        data: new Uint8Array(data),
+        name: file.name,
+        lastModified: file.lastModifiedDate,
+      };
+    }));
+    const zip = await createZip(fileData);
+    const blob = new Blob([zip], { type: 'application/x-zip' });
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+</script>
