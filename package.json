@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "check": "tsc --noEmit",
-    "build": "esbuild index.ts --bundle --format=cjs --minify --line-limit=80 --outfile=index.js",
+    "buildCjs": "esbuild index.ts --bundle --format=cjs --minify --line-limit=80 --outfile=index.js",
+    "buildEsm": "esbuild index.ts --bundle --format=esm --minify --line-limit=80 --outfile=index.mjs",
+    "build": "npm run buildCjs && npm run buildEsm",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

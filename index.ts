@@ -78,12 +78,10 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     zip[i++] = mdate & 0xff;
     zip[i++] = mdate >> 8;
     // crc32 (come back later)
-    let crcOffset = i;
-    i += 4;
-    // zip[i++] = crc & 0xff;
-    // zip[i++] = (crc >> 8) & 0xff;
-    // zip[i++] = (crc >> 16) & 0xff;
-    // zip[i++] = (crc >> 24);
+    zip[i++] = crc & 0xff;
+    zip[i++] = (crc >> 8) & 0xff;
+    zip[i++] = (crc >> 16) & 0xff;
+    zip[i++] = (crc >> 24);
     // compressed size (come back later)
     let compressedSizeOffset = i;
     i += 4;
@@ -106,7 +104,8 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     let compressedSize: number;
     if (deflate) {
       const
-        cstream = new CompressionStream('deflate-raw'),
+        compressedStart = i,
+        cstream = new CompressionStream('gzip'),
         writer = cstream.writable.getWriter(),
         reader = cstream.readable.getReader();
 
@@ -115,173 +114,148 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       await writer.ready;
       await writer.close();
 
-      enum S {
-        //  note: the Fx values must be the correct bitmasks for the flag byte
-        None = 0,
-        Start = 1,
-        Fhcrc16 = 2,
-        Fextra = 4,
-        Fname = 8,
-        Fcomment = 16,
-        Compressed = 64,
-      }
-
       let
-        bytesProcessed = 0,
-        compressedSize = 0,
-        gzipDataState = S.Start,
-        fhcrc16 = S.None,
-        fextra = S.None,
-        fname = S.None,
-        fcomment = S.None,
-        xlenBytesRead = 0,
-        xlen = 0;
+        bytes: Uint8Array,
+        bytesStartOffset = 0,
+        bytesEndOffset = 0;
 
+      // get flags
+      let fhcrc, fextra, fname, fcomment;
       for (; ;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // ignore bytes 0, 1, 2
-        // check byte 3 flags FEXTRA, FNAME, FCOMMENT
-        // if FEXTRA: read 2 bytes XLEN, then skip that many
-        // if FNAME: read to next null byte
-        // if COMMENT: ditto
-        // read next 2 bytes (CRC16)
-        // rest of bytes are compressed data
-        // except final 4 bytes (ignore)
-        // and previous 4 bytes (CRC32)
-
-        const
-          windowStart = bytesProcessed,
-          windowEnd = bytesProcessed + value.byteLength;
-
-        for (let j = windowStart; j < windowEnd; j++) {
-          switch (gzipDataState) {
-            case S.Start:
-              if (j === 3) {
-                const flag = value[j - windowStart] as number;
-                fhcrc16 = flag & S.Fhcrc16;
-                fextra = flag & S.Fextra;
-                fname = flag & S.Fname;
-                fcomment = flag & S.Fcomment;
-
-              } else if (j === 9) {
-                gzipDataState = fextra || fname || fcomment || fhcrc16 || S.Compressed;
-              }
-              break;
-
-            case S.Fextra:
-              if (xlenBytesRead === 0) xlen = value[j - windowStart];
-              else if (xlenBytesRead === 1) xlen |= value[j - windowStart] << 8;
-              else if (xlenBytesRead === xlen) {
-                gzipDataState = fname || fcomment || fhcrc16 || S.Compressed;
-              }
-              xlenBytesRead += 1;
-              break;
-
-            case S.Fname:
-              if (value[j - windowStart] === 0) {
-                gzipDataState = fcomment || fhcrc16 || S.Compressed;
-              } 
-              break;
-
-            case S.Fcomment:
-              if (value[j - windowStart] === 0) {
-                gzipDataState = fhcrc16 || S.Compressed;
-              } 
-              break;
-
-            case S.Fhcrc16:
-              
-          }
-
+        if (bytesStartOffset <= 3 && bytesEndOffset > 3) {  // bytes includes flag
+          const flag = bytes![3 - bytesStartOffset];
+          fhcrc = flag & 0b10;
+          fextra = flag & 0b100;
+          fname = flag & 0b1000;
+          fcomment = flag & 0b10000;
+          console.log({ fhcrc, fextra, fname, fcomment });
+          break;
         }
-
-        bytesProcessed = windowEnd;
-
-        zip.set(value, i);
-        compressedSize += value.length;
-        i += value.length;
+        const data = await reader.read();
+        if (data.done) throw new Error('Unexpected end of gzip data');
+        bytes = data.value;
+        bytesStartOffset = bytesEndOffset;
+        bytesEndOffset = bytesStartOffset + bytes.length;
       }
 
-    } else {
-      zip.set(uncompressed, i);
-      compressedSize = uncompressedSize;
-      i += uncompressedSize;
+      // skip extra data
+      if (fextra) {
+        let xlenlsb, endExtraData;
+        for (; ;) {
+          if (bytesStartOffset <= 10 && bytesEndOffset > 10) {
+            xlenlsb = bytes![10 - bytesStartOffset];
+          }
+          if (bytesStartOffset <= 11 && bytesEndOffset > 11) {
+            const xlenmsb = bytes![11 - bytesStartOffset];
+            const xlen = xlenlsb! | (xlenmsb << 8);
+            endExtraData = 12 + xlen;
+          }
+          if (bytesEndOffset > endExtraData!) break;
+          const data = await reader.read();
+          if (data.done) throw new Error('Unexpected end of gzip data');
+          bytes = data.value;
+          bytesStartOffset = bytesEndOffset;
+          bytesEndOffset = bytesStartOffset + bytes.length;
+        }
+      }
+
+      // skip fname
+      if (fname) {
+        for (; ;) {
+          
+        }
+      }
+
+
+
+
+      const valueSize = value.length;
+      const remainingBytesToSkip = 10 - skippedBytes;
+      if (remainingBytesToSkip > 0) skippedBytes +=
+        zip.set(value, i);
+      i += value.length;
     }
 
-    // fill in compressed size
-    zip[compressedSizeOffset++] = compressedSize & 0xff;
-    zip[compressedSizeOffset++] = (compressedSize >> 8) & 0xff;
-    zip[compressedSizeOffset++] = (compressedSize >> 16) & 0xff;
-    zip[compressedSizeOffset++] = (compressedSize >> 24);
+    compressedSize = i - compressedStart;
+
+  } else {
+    zip.set(uncompressed, i);
+    i += uncompressedSize;
+    compressedSize = uncompressedSize;
   }
 
-  // central directory
-  const centralDirectoryOffset = i;
-  for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
-    const
-      localHeaderOffset = localHeaderOffsets[fileIndex],
-      fileName = fileNames[fileIndex],
-      fileNameSize = fileName.byteLength;
+  // fill in compressed size
+  zip[compressedSizeOffset++] = compressedSize & 0xff;
+  zip[compressedSizeOffset++] = (compressedSize >> 8) & 0xff;
+  zip[compressedSizeOffset++] = (compressedSize >> 16) & 0xff;
+  zip[compressedSizeOffset++] = (compressedSize >> 24);
+}
 
-    // signature
-    zip[i++] = 0x50; // P
-    zip[i++] = 0x4b; // K
-    zip[i++] = 0x01;
-    zip[i++] = 0x02;
-    // version created by
-    zip[i++] = 20;  // 2.0
-    zip[i++] = 0;   // platform (MS-DOS)
-    // version needed to extract
-    zip[i++] = 20;  // 2.0
-    zip[i++] = 0;
-    // copy local header from [general purpose flag] to [extra field length]
-    zip.set(zip.subarray(localHeaderOffset + 6, localHeaderOffset + 30), i);
-    i += 24;
-    // file comment length, disk number, internal attr, external attr
-    for (let j = 0; j < 10; j++) zip[i++] = 0;
-    // local header offset
-    zip[i++] = localHeaderOffset & 0xff;
-    zip[i++] = (localHeaderOffset >> 8) & 0xff;
-    zip[i++] = (localHeaderOffset >> 16) & 0xff;
-    zip[i++] = (localHeaderOffset >> 24);
-    // file name
-    zip.set(fileName, i);
-    i += fileNameSize;
-  }
-  const centralDirectorySize = i - centralDirectoryOffset;
+// central directory
+const centralDirectoryOffset = i;
+for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
+  const
+    localHeaderOffset = localHeaderOffsets[fileIndex],
+    fileName = fileNames[fileIndex],
+    fileNameSize = fileName.byteLength;
 
-  // end of central directory record
   // signature
   zip[i++] = 0x50; // P
   zip[i++] = 0x4b; // K
-  zip[i++] = 0x05;
-  zip[i++] = 0x06;
-  // disk numbers x 2
+  zip[i++] = 0x01;
+  zip[i++] = 0x02;
+  // version created by
+  zip[i++] = 20;  // 2.0
+  zip[i++] = 0;   // platform (MS-DOS)
+  // version needed to extract
+  zip[i++] = 20;  // 2.0
   zip[i++] = 0;
-  zip[i++] = 0;
-  zip[i++] = 0;
-  zip[i++] = 0;
-  // disk entries
-  zip[i++] = numFiles & 0xff;
-  zip[i++] = (numFiles >> 8) & 0xff;
-  // total entries
-  zip[i++] = numFiles & 0xff;
-  zip[i++] = (numFiles >> 8) & 0xff;
-  // central directory size
-  zip[i++] = centralDirectorySize & 0xff;
-  zip[i++] = (centralDirectorySize >> 8) & 0xff;
-  zip[i++] = (centralDirectorySize >> 16) & 0xff;
-  zip[i++] = (centralDirectorySize >> 24);
-  // central directory offset
-  zip[i++] = centralDirectoryOffset & 0xff;
-  zip[i++] = (centralDirectoryOffset >> 8) & 0xff;
-  zip[i++] = (centralDirectoryOffset >> 16) & 0xff;
-  zip[i++] = (centralDirectoryOffset >> 24);
-  // comment length
-  zip[i++] = 0;
-  zip[i++] = 0;
+  // copy local header from [general purpose flag] to [extra field length]
+  zip.set(zip.subarray(localHeaderOffset + 6, localHeaderOffset + 30), i);
+  i += 24;
+  // file comment length, disk number, internal attr, external attr
+  for (let j = 0; j < 10; j++) zip[i++] = 0;
+  // local header offset
+  zip[i++] = localHeaderOffset & 0xff;
+  zip[i++] = (localHeaderOffset >> 8) & 0xff;
+  zip[i++] = (localHeaderOffset >> 16) & 0xff;
+  zip[i++] = (localHeaderOffset >> 24);
+  // file name
+  zip.set(fileName, i);
+  i += fileNameSize;
+}
+const centralDirectorySize = i - centralDirectoryOffset;
 
-  return zip.subarray(0, i);
+// end of central directory record
+// signature
+zip[i++] = 0x50; // P
+zip[i++] = 0x4b; // K
+zip[i++] = 0x05;
+zip[i++] = 0x06;
+// disk numbers x 2
+zip[i++] = 0;
+zip[i++] = 0;
+zip[i++] = 0;
+zip[i++] = 0;
+// disk entries
+zip[i++] = numFiles & 0xff;
+zip[i++] = (numFiles >> 8) & 0xff;
+// total entries
+zip[i++] = numFiles & 0xff;
+zip[i++] = (numFiles >> 8) & 0xff;
+// central directory size
+zip[i++] = centralDirectorySize & 0xff;
+zip[i++] = (centralDirectorySize >> 8) & 0xff;
+zip[i++] = (centralDirectorySize >> 16) & 0xff;
+zip[i++] = (centralDirectorySize >> 24);
+// central directory offset
+zip[i++] = centralDirectoryOffset & 0xff;
+zip[i++] = (centralDirectoryOffset >> 8) & 0xff;
+zip[i++] = (centralDirectoryOffset >> 16) & 0xff;
+zip[i++] = (centralDirectoryOffset >> 24);
+// comment length
+zip[i++] = 0;
+zip[i++] = 0;
+
+return zip.subarray(0, i);
 }
