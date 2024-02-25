@@ -19,6 +19,7 @@
   async function drop(e) {
     stop(e);
     const files = e.dataTransfer.files;
+    console.log(files);
     const fileData = await Promise.all([...files].map(async file => {
       const data = await file.arrayBuffer();
       return {

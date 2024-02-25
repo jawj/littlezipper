@@ -1,7 +1,6 @@
 let T: Int32Array[];
 
-function init() {
-  if (T) return;
+const init = () => {
   const T0 = new Int32Array(256), t = new Int32Array(4096), x = -306674912;
   let c: number, n: number, v: number;
   for (n = 0; n < 256; n++) {
@@ -25,8 +24,8 @@ function init() {
   for (n = 1; n < 16; n++) T[n] = t.subarray(n * 256, n * 256 + 256);
 }
 
-export function crc32(B: Uint8Array, seed = 0) {
-  init();
+export const crc32 = (B: Uint8Array, seed = 0) => {
+  if (!T) init();
   const [T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, Ta, Tb, Tc, Td, Te, Tf] = T;
   let C = seed ^ -1, L = B.length - 15, i = 0;
   for (; i < L;) {
