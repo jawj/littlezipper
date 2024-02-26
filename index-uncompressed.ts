@@ -13,7 +13,8 @@ export interface File {
 
 const
   textEncoder = new TextEncoder(),
-  sum = (ns: number[]) => ns.reduce((memo, n) => memo + n, 0);
+  sum = (ns: number[]) => ns.reduce((memo, n) => memo + n, 0),
+  ui8 = Uint8Array;
 
 export const createZip = async (inputFiles: File[]) => {
   const
@@ -22,13 +23,15 @@ export const createZip = async (inputFiles: File[]) => {
     fileNames = inputFiles.map(file => textEncoder.encode(file.name)),
     fileData = inputFiles.map(({ data }) =>
       typeof data === 'string' ? textEncoder.encode(data) :
-        data instanceof ArrayBuffer ? new Uint8Array(data) : data),
+        data instanceof ArrayBuffer ? new ui8(data) : data),
     totalDataSize = sum(fileData.map(data => data.byteLength)),
     fileNamesSize = sum(fileNames.map(name => name.byteLength)),
-    localHeadersSize = numFiles * 30 + fileNamesSize,
     centralDirectorySize = numFiles * 46 + fileNamesSize,
-    zipSize = localHeadersSize + totalDataSize + centralDirectorySize + 22 /* 22 = central directory end */,
-    zip = new Uint8Array(zipSize),
+    zipSize =
+      numFiles * 30 + fileNamesSize  // local headers
+      + totalDataSize + centralDirectorySize
+      + 22,  // central directory end
+    zip = new ui8(zipSize),
     now = new Date();
 
   let b = 0;  // zip byte index
@@ -42,15 +45,10 @@ export const createZip = async (inputFiles: File[]) => {
       fileNameSize = fileName.byteLength,
       data = fileData[fileIndex],
       dataSize = data.byteLength,
-      lastModified = inputFiles[fileIndex].lastModified ?? now,
-      sec = lastModified.getSeconds(),
-      min = lastModified.getMinutes(),
-      hr = lastModified.getHours(),
-      day = lastModified.getDate(),
-      mth = lastModified.getMonth() + 1,
-      yr = lastModified.getFullYear(),
-      mtime = Math.floor(sec / 2) + (min << 5) + (hr << 11),
-      mdate = day + (mth << 5) + ((yr - 1980) << 9);
+
+      lm = inputFiles[fileIndex].lastModified ?? now,
+      mtime = Math.floor(lm.getSeconds() / 2) + (lm.getMinutes() << 5) + (lm.getHours() << 11),
+      mdate = lm.getDate() + ((lm.getMonth() + 1) << 5) + ((lm.getFullYear() - 1980) << 9);
 
     // signature
     zip[b++] = 0x50; // P
@@ -118,7 +116,7 @@ export const createZip = async (inputFiles: File[]) => {
     zip.set(zip.subarray(localHeaderOffset + 6, localHeaderOffset + 30), b);
     b += 24  // skip copied section
       // file comment length, disk number, internal attr, external attr
-      + 10;  // zeroes
+      + 10;  // all zeroes
     // local header offset
     zip[b++] = localHeaderOffset & 0xff;
     zip[b++] = (localHeaderOffset >> 8) & 0xff;
