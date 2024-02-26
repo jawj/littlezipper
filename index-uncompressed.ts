@@ -1,7 +1,6 @@
 // references:
 // https://users.cs.jmu.edu/buchhofp/forensics/formats/pkzip.html
 // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
-// https://www.rfc-editor.org/rfc/rfc1952
 
 import { crc32 } from './crc32';
 
