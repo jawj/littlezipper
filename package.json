@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "check": "tsc --noEmit",
-    "buildCjs": "esbuild index.ts --bundle --format=cjs --minify --line-limit=100 --outfile=index.js",
-    "buildEsm": "esbuild index.ts --bundle --format=esm --minify --line-limit=100 --outfile=index.mjs",
-    "buildUnc": "esbuild index-uncompressed.ts --bundle --format=esm --minify --line-limit=80 --outfile=index-uncompressed.mjs",
+    "buildCjs": "esbuild index.ts --bundle --format=cjs --minify --line-limit=120 --outfile=index.js",
+    "buildEsm": "esbuild index.ts --bundle --format=esm --minify --line-limit=120 --outfile=index.mjs",
+    "buildUnc": "esbuild index-uncompressed.ts --bundle --format=esm --minify --line-limit=120 --outfile=index-uncompressed.mjs",
     "build": "npm run buildCjs && npm run buildEsm && npm run buildUnc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

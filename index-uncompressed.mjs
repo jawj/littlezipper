@@ -1,28 +1,17 @@
-var h,E=()=>{let r=new Int32Array(256),s=new Int32Array(4096),a=-306674912,t,x,g,
-m;for(x=0;x<256;x++)t=x,t=t&1?a^t>>>1:t>>>1,t=t&1?a^t>>>1:t>>>1,t=t&1?a^t>>>1:t>>>
-1,t=t&1?a^t>>>1:t>>>1,t=t&1?a^t>>>1:t>>>1,t=t&1?a^t>>>1:t>>>1,t=t&1?a^t>>>1:t>>>
-1,s[x]=r[x]=t&1?a^t>>>1:t>>>1;for(x=0;x<256;x++)for(m=r[x],t=256+x;t<4096;t+=256)
-m=s[t]=m>>>8^r[m&255];for(h=[r],x=1;x<16;x++)h[x]=s.subarray(x*256,x*256+256)},D=(r,s=0)=>{
-h||E();let[a,t,x,g,m,z,b,p,f,A,e,T,n,c,y,d]=h,o=s^-1,l=r.length-15,i=0;for(;i<l;)
-o=d[r[i++]^o&255]^y[r[i++]^o>>8&255]^c[r[i++]^o>>16&255]^n[r[i++]^o>>>24]^T[r[i++]]^
-e[r[i++]]^A[r[i++]]^f[r[i++]]^p[r[i++]]^b[r[i++]]^z[r[i++]]^m[r[i++]]^g[r[i++]]^
-x[r[i++]]^t[r[i++]]^a[r[i++]];for(l+=15;i<l;)o=o>>>8^a[(o^r[i++])&255];return~o};var M=new TextEncoder,N=r=>r.reduce((s,a)=>s+a,0),F=async r=>{let s=[],a=r.length,
-t=r.map(n=>M.encode(n.name)),x=r.map(({data:n})=>typeof n=="string"?M.encode(n):
-n instanceof ArrayBuffer?new Uint8Array(n):n),g=N(x.map(n=>n.byteLength)),m=N(t.
-map(n=>n.byteLength)),z=a*30+m,b=a*46+m,p=z+g+b+22,f=new Uint8Array(p),A=new Date,
-e=0;for(let n=0;n<a;n++){s[n]=e;let c=t[n],y=c.byteLength,d=x[n],o=d.byteLength,
-l=r[n].lastModified??A,i=l.getSeconds(),I=l.getMinutes(),L=l.getHours(),H=l.getDate(),
-U=l.getMonth()+1,O=l.getFullYear(),S=Math.floor(i/2)+(I<<5)+(L<<11),w=H+(U<<5)+(O-
-1980<<9);f[e++]=80,f[e++]=75,f[e++]=3,f[e++]=4,f[e++]=20,f[e++]=0,f[e++]=0,f[e++]=
-8,f[e++]=0,f[e++]=0,f[e++]=S&255,f[e++]=S>>8,f[e++]=w&255,f[e++]=w>>8;let u=D(d);
-f[e++]=u&255,f[e++]=u>>8&255,f[e++]=u>>16&255,f[e++]=u>>24,f[e++]=o&255,f[e++]=o>>
-8&255,f[e++]=o>>16&255,f[e++]=o>>24,f[e++]=o&255,f[e++]=o>>8&255,f[e++]=o>>16&255,
-f[e++]=o>>24,f[e++]=y&255,f[e++]=y>>8&255,f[e++]=0,f[e++]=0,f.set(c,e),e+=y,f.set(
-d,e),e+=o}let T=e;for(let n=0;n<a;n++){let c=s[n],y=t[n],d=y.byteLength;f[e++]=80,
-f[e++]=75,f[e++]=1,f[e++]=2,f[e++]=20,f[e++]=0,f[e++]=20,f[e++]=0,f.set(f.subarray(
-c+6,c+30),e),e+=24;for(let o=0;o<10;o++)f[e++]=0;f[e++]=c&255,f[e++]=c>>8&255,f[e++]=
-c>>16&255,f[e++]=c>>24,f.set(y,e),e+=d}return f[e++]=80,f[e++]=75,f[e++]=5,f[e++]=
-6,f[e++]=0,f[e++]=0,f[e++]=0,f[e++]=0,f[e++]=a&255,f[e++]=a>>8&255,f[e++]=a&255,
-f[e++]=a>>8&255,f[e++]=b&255,f[e++]=b>>8&255,f[e++]=b>>16&255,f[e++]=b>>24,f[e++]=
-T&255,f[e++]=T>>8&255,f[e++]=T>>16&255,f[e++]=T>>24,f[e++]=0,f[e++]=0,f.subarray(
-0,e)};export{F as createZip};
+var h,E=()=>{let r=new Int32Array(256),s=new Int32Array(4096),a=-306674912,f,o,m;for(o=0;o<256;o++)f=o,f=f&1?a^f>>>1:f>>>
+1,f=f&1?a^f>>>1:f>>>1,f=f&1?a^f>>>1:f>>>1,f=f&1?a^f>>>1:f>>>1,f=f&1?a^f>>>1:f>>>1,f=f&1?a^f>>>1:f>>>1,f=f&1?a^f>>>1:f>>>
+1,s[o]=r[o]=f&1?a^f>>>1:f>>>1;for(o=0;o<256;o++)for(m=r[o],f=256+o;f<4096;f+=256)m=s[f]=m>>>8^r[m&255];for(h=[r],o=1;o<16;o++)
+h[o]=s.subarray(o*256,o*256+256)},D=(r,s=0)=>{h||E();let[a,f,o,m,g,z,d,p,t,A,e,b,n,c,y,T]=h,x=s^-1,l=r.length-15,i=0;for(;i<
+l;)x=T[r[i++]^x&255]^y[r[i++]^x>>8&255]^c[r[i++]^x>>16&255]^n[r[i++]^x>>>24]^b[r[i++]]^e[r[i++]]^A[r[i++]]^t[r[i++]]^p[r[i++]]^
+d[r[i++]]^z[r[i++]]^g[r[i++]]^m[r[i++]]^o[r[i++]]^f[r[i++]]^a[r[i++]];for(l+=15;i<l;)x=x>>>8^a[(x^r[i++])&255];return~x};var M=new TextEncoder,N=r=>r.reduce((s,a)=>s+a,0),Y=async r=>{let s=[],a=r.length,f=r.map(n=>M.encode(n.name)),o=r.map(({
+data:n})=>typeof n=="string"?M.encode(n):n instanceof ArrayBuffer?new Uint8Array(n):n),m=N(o.map(n=>n.byteLength)),g=N(f.
+map(n=>n.byteLength)),z=a*30+g,d=a*46+g,p=z+m+d+22,t=new Uint8Array(p),A=new Date,e=0;for(let n=0;n<a;n++){s[n]=e;let c=f[n],
+y=c.byteLength,T=o[n],x=T.byteLength,l=r[n].lastModified??A,i=l.getSeconds(),I=l.getMinutes(),L=l.getHours(),H=l.getDate(),
+U=l.getMonth()+1,O=l.getFullYear(),S=Math.floor(i/2)+(I<<5)+(L<<11),w=H+(U<<5)+(O-1980<<9);t[e++]=80,t[e++]=75,t[e++]=3,
+t[e++]=4,t[e]=20,e+=3,t[e]=8,e+=3,t[e++]=S&255,t[e++]=S>>8,t[e++]=w&255,t[e++]=w>>8;let u=D(T);t[e++]=u&255,t[e++]=u>>8&
+255,t[e++]=u>>16&255,t[e++]=u>>24,t[e+4]=t[e++]=x&255,t[e+4]=t[e++]=x>>8&255,t[e+4]=t[e++]=x>>16&255,t[e+4]=t[e]=x>>24,e+=
+5,t[e++]=y&255,t[e]=y>>8&255,e+=3,t.set(c,e),e+=y,t.set(T,e),e+=x}let b=e;for(let n=0;n<a;n++){let c=s[n],y=f[n],T=y.byteLength;
+t[e++]=80,t[e++]=75,t[e++]=1,t[e++]=2,t[e]=20,e+=2,t[e]=20,e+=2,t.set(t.subarray(c+6,c+30),e),e+=34,t[e++]=c&255,t[e++]=
+c>>8&255,t[e++]=c>>16&255,t[e++]=c>>24,t.set(y,e),e+=T}return t[e++]=80,t[e++]=75,t[e++]=5,t[e]=6,e+=5,t[e++]=a&255,t[e++]=
+a>>8&255,t[e++]=a&255,t[e++]=a>>8&255,t[e++]=d&255,t[e++]=d>>8&255,t[e++]=d>>16&255,t[e++]=d>>24,t[e++]=b&255,t[e++]=b>>
+8&255,t[e++]=b>>16&255,t[e]=b>>24,e+=3,t.subarray(0,e)};export{Y as createZip};
