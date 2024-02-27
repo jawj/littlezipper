@@ -7,13 +7,12 @@
     "check": "tsc --noEmit",
     "buildCjs": "esbuild index.ts --bundle --format=cjs --minify --outfile=index.js",
     "buildEsm": "esbuild index.ts --bundle --format=esm --minify --outfile=index.mjs",
-    "buildUnc": "esbuild index-uncompressed.ts --bundle --format=esm --minify --outfile=index-uncompressed.mjs",
+    "buildUnc": "esbuild fullSizeZip.ts --bundle --format=esm --minify --outfile=fullSizeZip.mjs",
     "build": "npm run buildCjs && npm run buildEsm && npm run buildUnc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "zip",
-    "deflate",
     "compressionstream"
   ],
   "author": "George MacKerron",
