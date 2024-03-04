@@ -2,6 +2,8 @@
 // https://users.cs.jmu.edu/buchhofp/forensics/formats/pkzip.html
 // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
 
+// 2.1KB minified, 1.1KB zipped
+
 import { crc32 } from './crc32';
 
 export interface File {
@@ -151,7 +153,7 @@ export const createZip = async (inputFiles: File[]) => {
   zip[b++] = (centralDirectoryOffset >> 16) & 0xff;
   zip[b] = (centralDirectoryOffset >> 24);
   // comment length
-  b += 3;  // 2 zeroes
+  // 2 zeroes
 
-  return zip.subarray(0, b);
+  return zip;
 }

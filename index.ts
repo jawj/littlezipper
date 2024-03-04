@@ -1,7 +1,25 @@
+/**
+ * LittleZIP
+ * Copyright (C) George MacKerron 2024
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // references:
 // https://users.cs.jmu.edu/buchhofp/forensics/formats/pkzip.html
 // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
 // https://www.rfc-editor.org/rfc/rfc1952
+
 
 import { crc32 } from './crc32';
 
@@ -15,33 +33,28 @@ const
   hasCompressionStreams = typeof CompressionStream !== 'undefined',
   textEncoder = new TextEncoder(),
   sum = (ns: number[]) => ns.reduce((memo, n) => memo + n, 0),
+  ui8 = Uint8Array,  // saves a few bytes when minified
   gzipHeaderBytes = 10;
 
 export async function createZip(inputFiles: File[], compressWhenPossible = true) {
   const
     localHeaderOffsets = [],
-    deflate = hasCompressionStreams && compressWhenPossible,
+    attemptDeflate = hasCompressionStreams && compressWhenPossible,
     numFiles = inputFiles.length,
     fileNames = inputFiles.map(file => textEncoder.encode(file.name)),
     fileData = inputFiles.map(({ data }) =>
       typeof data === 'string' ? textEncoder.encode(data) :
-        data instanceof ArrayBuffer ? new Uint8Array(data) : data),
+        data instanceof ArrayBuffer ? new ui8(data) : data),
     totalDataSize = sum(fileData.map(data => data.byteLength)),
-    fileNamesSize = sum(fileNames.map(name => name.byteLength)),
-    localHeadersSize =
-      numFiles * 30 +  // local file headers (minus file names)
-      fileNamesSize,
-    centralDirectorySize =
-      numFiles * 46  // central directory file headers (minus file names)
-      + fileNamesSize,
-    centralDirectoryEndSize = 22,
-    // in theory, max deflate overhead should be 5b per 32K, but this doesn't appear to be true
-    maxZipSize = 
-      localHeadersSize + centralDirectorySize + centralDirectoryEndSize
-      + Math.ceil(totalDataSize * 1.01)  // allow 1% expansion (worst seen was 0.1%)
-      + numFiles * 128,  // plus an extra 128b per file (worst seen was 12b)
-    zip = new Uint8Array(maxZipSize),
-    now = new Date();
+    totalFileNamesSize = sum(fileNames.map(name => name.byteLength)),
+    centralDirectorySize = numFiles * 46 + totalFileNamesSize,
+    // if deflate actually expands the data, which can happen, we'll just stick it in uncompressed
+    maxZipSize = totalDataSize
+      + numFiles * 30 + totalFileNamesSize  // local headers
+      + centralDirectorySize + 22,  // 22 = cental directory trailer
+    now = new Date(),
+    zip = new ui8(maxZipSize);
+
 
   let b = 0;  // zip byte index
 
@@ -54,15 +67,9 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       fileNameSize = fileName.byteLength,
       uncompressed = fileData[fileIndex],
       uncompressedSize = uncompressed.byteLength,
-      lastModified = inputFiles[fileIndex].lastModified ?? now,
-      sec = lastModified.getSeconds(),
-      min = lastModified.getMinutes(),
-      hr = lastModified.getHours(),
-      day = lastModified.getDate(),
-      mth = lastModified.getMonth() + 1,
-      yr = lastModified.getFullYear(),
-      mtime = Math.floor(sec / 2) + (min << 5) + (hr << 11),
-      mdate = day + (mth << 5) + ((yr - 1980) << 9);
+      lm = inputFiles[fileIndex].lastModified ?? now,
+      mtime = Math.floor(lm.getSeconds() / 2) + (lm.getMinutes() << 5) + (lm.getHours() << 11),
+      mdate = lm.getDate() + ((lm.getMonth() + 1) << 5) + ((lm.getFullYear() - 1980) << 9);
 
     // signature
     zip[b++] = 0x50; // P
@@ -75,8 +82,8 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     // general purpose flag
     zip[b++] = 0;
     zip[b++] = 0b1000;  // bit 11 (indexed from 0) => UTF-8 file names
-    // compression
-    zip[b++] = deflate ? 8 : 0;  // deflate or none
+    // compression (come back later)
+    const compressionOffset = b++;
     zip[b++] = 0;
     // mtime, mdate
     zip[b++] = mtime & 0xff;
@@ -106,56 +113,91 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
 
     // compressed data
     let compressedSize: number;
-    if (deflate) {
+    if (attemptDeflate) {
       const
         compressedStart = b,
         cstream = new CompressionStream('gzip'),
         writer = cstream.writable.getWriter(),
         reader = cstream.readable.getReader();
 
+      let
+        bytes: Uint8Array,
+        bytesStartOffset = 0,
+        bytesEndOffset = 0,
+        abortDeflate = false;
+
       writer.write(uncompressed);
       writer.close();
 
-      let
-        bytesStartOffset = 0,
-        bytesEndOffset = 0;
+      deflate: {
+        // check and skip gzip header
+        for (; ;) {
+          const data = await reader.read();
+          if (data.done) throw new Error('Unexpected end of gzip data');
 
-      // skip gzip header
-      // note: we assume no optional fields, which makes the header exactly 10 bytes
-      // this seems logical, and is safe in Firefox, Chrome, Safari, Edge, Node, Deno at the time of writing
-      // (Bun doesn't currently implement CompressionStream)
-      for (; ;) {
-        const data = await reader.read();
-        if (data.done) throw new Error('Unexpected end of gzip data');
+          bytes = data.value;
+          bytesStartOffset = bytesEndOffset;
+          bytesEndOffset = bytesStartOffset + bytes.length;
 
-        const bytes: Uint8Array = data.value;
-        bytesStartOffset = bytesEndOffset;
-        bytesEndOffset = bytesStartOffset + bytes.length;
-        if (bytesStartOffset <= 2 && bytesEndOffset > 2) {
-          const cmp = bytes[2 - bytesStartOffset];
-          if (cmp !== 8) throw new Error(`Assumptions violated: gzip not deflated (compression value: ${cmp})`);
+          // check flags value
+          // note: we assume no optional fields; if there are any, we give up on compression
+          if (bytesStartOffset <= 3 && bytesEndOffset > 3) {
+            const flags = bytes[3 - bytesStartOffset];
+            if (flags & 0b11110) {
+              abortDeflate = true;  // assumptions on gzip flags were violated
+              break deflate;
+            }
+          }
+
+          // check end of header
+          if (bytesEndOffset >= gzipHeaderBytes) {
+            bytes = bytes.subarray(gzipHeaderBytes - bytesStartOffset);  // length could be zero
+            break;
+          }
         }
-        if (bytesStartOffset <= 3 && bytesEndOffset > 3) {
-          const flags = bytes[3 - bytesStartOffset];
-          if (flags & 0b11110) throw new Error(`Assumptions violated: one or more optional gzip flags present (flags: ${flags})`);
-        }
-        if (bytesEndOffset === gzipHeaderBytes) break;  // header ended neatly on chunk boundary
-        if (bytesEndOffset > gzipHeaderBytes) {
-          const dataBytes = bytes.subarray(gzipHeaderBytes - bytesStartOffset);
-          zip.set(dataBytes, b);
-          b += dataBytes.byteLength;
-          break;
+
+        // copy compressed data
+        for (; ;) {
+          const
+            bytesAlreadyWritten = b - compressedStart,
+            bytesLength = bytes.byteLength;
+
+          if (bytesAlreadyWritten + bytesLength >= uncompressedSize) {
+            abortDeflate = true;
+            break deflate;
+          }
+
+          zip.set(bytes, b);
+          b += bytesLength;
+
+          const data = await reader.read();
+          if (data.done) break;
+
+          bytes = data.value;
         }
       }
 
-      // copy remainder of data
-      for (; ;) {
-        const data = await reader.read();
-        if (data.done) break;
+      if (abortDeflate) {
+        // Either we got unexpected flags, or deflate made the data larger.
+        // In either case, we give up on the compressed data, but hold on for the CRC.
+        // We need the last 8 bytes of gzip data: the first 4 of these are the CRC.
 
-        const bytes: Uint8Array = data.value;
-        zip.set(bytes, b);
-        b += bytes.byteLength;
+        for (; ;) {
+          const
+            bytesLength = bytes.byteLength,
+            copyBytes = 8 - bytesLength,
+            bPrev = b;
+
+          b = compressedStart;
+          for (let i = 0; i < 8; i++) {
+            zip[b++] = i < copyBytes ? zip[bPrev - copyBytes + i] : bytes[bytesLength - 8 + i];
+          }
+
+          const data = await reader.read();
+          if (data.done) break;
+
+          bytes = data.value;
+        }
       }
 
       // backtrack and retrieve CRC
@@ -166,14 +208,24 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       zip[crcOffset++] = zip[b++];
       b -= 4;
 
-      compressedSize = b - compressedStart;
+      if (abortDeflate) {
+        zip[compressionOffset] = 0;  // no compression
+        zip.set(uncompressed, b);
+        b += uncompressedSize;
+        compressedSize = uncompressedSize;
+
+      } else {
+        zip[compressionOffset] = 8;  // deflate
+        compressedSize = b - compressedStart;
+      }
 
     } else {
+      zip[compressionOffset] = 0;  // no compression
       zip.set(uncompressed, b);
       b += uncompressedSize;
       compressedSize = uncompressedSize;
 
-      // now calculate CRC ourselves
+      // calculate CRC ourselves
       const crc = crc32(uncompressed);
       zip[b++] = crc & 0xff;
       zip[b++] = (crc >> 8) & 0xff;
