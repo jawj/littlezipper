@@ -20,7 +20,6 @@
 // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
 // https://www.rfc-editor.org/rfc/rfc1952
 
-
 import { crc32 } from './crc32';
 
 export interface File {
@@ -55,7 +54,6 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     now = new Date(),
     zip = new ui8(maxZipSize);
 
-
   let b = 0;  // zip byte index
 
   // write local headers and compressed files
@@ -77,14 +75,14 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     zip[b++] = 0x03;
     zip[b++] = 0x04;
     // version needed to extract
-    zip[b++] = 20;  // 2.0
-    zip[b++] = 0;
+    zip[b] = 20;  // 2.0
+    // 0
     // general purpose flag
-    zip[b++] = 0;
+    b += 3;  // 0
     zip[b++] = 0b1000;  // bit 11 (indexed from 0) => UTF-8 file names
     // compression (come back later)
-    const compressionOffset = b++;
-    zip[b++] = 0;
+    const compressionOffset = b;
+    b += 2;  // 0
     // mtime, mdate
     zip[b++] = mtime & 0xff;
     zip[b++] = mtime >> 8;
@@ -103,10 +101,10 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     zip[b++] = (uncompressedSize >> 24);
     // file name length
     zip[b++] = fileNameSize & 0xff;
-    zip[b++] = (fileNameSize >> 8) & 0xff;
+    zip[b] = (fileNameSize >> 8) & 0xff;
     // extra field length
-    zip[b++] = 0;
-    zip[b++] = 0;
+    // 0
+    b += 3;  // 0
     // file name
     zip.set(fileName, b);
     b += fileNameSize;
@@ -209,7 +207,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       b -= 4;
 
       if (abortDeflate) {
-        zip[compressionOffset] = 0;  // no compression
+        // leave zip[compressionOffset] as is: it's 0, which already means no compression
         zip.set(uncompressed, b);
         b += uncompressedSize;
         compressedSize = uncompressedSize;
@@ -220,7 +218,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
       }
 
     } else {
-      zip[compressionOffset] = 0;  // no compression
+      // leave zip[compressionOffset] as is: it's 0, which already means no compression
       zip.set(uncompressed, b);
       b += uncompressedSize;
       compressedSize = uncompressedSize;
@@ -254,16 +252,16 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     zip[b++] = 0x01;
     zip[b++] = 0x02;
     // version created by
-    zip[b++] = 20;  // 2.0
-    zip[b++] = 0;   // platform (MS-DOS)
+    zip[b] = 20;  // 2.0
+    b += 2;  // 0 -> platform (MS-DOS)
     // version needed to extract
-    zip[b++] = 20;  // 2.0
-    zip[b++] = 0;
+    zip[b] = 20;  // 2.0
+    b += 2;  // 0
     // copy local header from [general purpose flag] to [extra field length]
     zip.set(zip.subarray(localHeaderOffset + 6, localHeaderOffset + 30), b);
-    b += 24;
+    // 24 * 0
     // file comment length, disk number, internal attr, external attr
-    for (let j = 0; j < 10; j++) zip[b++] = 0;
+    b += 34; // 10 * 0
     // local header offset
     zip[b++] = localHeaderOffset & 0xff;
     zip[b++] = (localHeaderOffset >> 8) & 0xff;
@@ -279,12 +277,9 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
   zip[b++] = 0x50; // P
   zip[b++] = 0x4b; // K
   zip[b++] = 0x05;
-  zip[b++] = 0x06;
+  zip[b] = 0x06;
   // disk numbers x 2
-  zip[b++] = 0;
-  zip[b++] = 0;
-  zip[b++] = 0;
-  zip[b++] = 0;
+  b += 5;  // 4 * 0
   // disk entries
   zip[b++] = numFiles & 0xff;
   zip[b++] = (numFiles >> 8) & 0xff;
@@ -300,10 +295,10 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
   zip[b++] = centralDirectoryOffset & 0xff;
   zip[b++] = (centralDirectoryOffset >> 8) & 0xff;
   zip[b++] = (centralDirectoryOffset >> 16) & 0xff;
-  zip[b++] = (centralDirectoryOffset >> 24);
+  zip[b] = (centralDirectoryOffset >> 24);
   // comment length
-  zip[b++] = 0;
-  zip[b++] = 0;
+  // 0 
+  b += 3;  // 0
 
   return zip.subarray(0, b);
 }
