@@ -131,7 +131,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
         // check and skip gzip header
         for (; ;) {
           const data = await reader.read();
-          if (data.done) throw new Error('Unexpected end of gzip data');
+          if (data.done) throw new Error('Incomplete gzip data');
 
           bytes = data.value;
           bytesStartOffset = bytesEndOffset;
@@ -298,7 +298,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
   zip[b] = (centralDirectoryOffset >> 24);
   // comment length
   // 0 
-  b += 3;  // 0
+  // 0
 
-  return zip.subarray(0, b);
+  return zip.subarray(0, b + 3);
 }
