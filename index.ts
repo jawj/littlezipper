@@ -35,7 +35,18 @@ const
   ui8 = Uint8Array,  // saves a few bytes when minified
   gzipHeaderBytes = 10;
 
-export async function createZip(inputFiles: File[], compressWhenPossible = true) {
+function makeGzipReadFn(dataIn: Uint8Array) {
+  const 
+    cs = new CompressionStream('gzip'),
+    writer = cs.writable.getWriter(),
+    reader = cs.readable.getReader();
+
+  writer.write(dataIn);
+  writer.close();
+  return () => reader.read();
+}
+
+export async function createZip(inputFiles: File[], compressWhenPossible = true, gzipReadFn = makeGzipReadFn) {
   const
     localHeaderOffsets = [],
     attemptDeflate = hasCompressionStreams && compressWhenPossible,
@@ -114,9 +125,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
     if (attemptDeflate) {
       const
         compressedStart = b,
-        cstream = new CompressionStream('gzip'),
-        writer = cstream.writable.getWriter(),
-        reader = cstream.readable.getReader();
+        read = gzipReadFn(uncompressed);
 
       let
         bytes: Uint8Array,
@@ -124,13 +133,10 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
         bytesEndOffset = 0,
         abortDeflate = false;
 
-      writer.write(uncompressed);
-      writer.close();
-
       deflate: {
         // check and skip gzip header
         for (; ;) {
-          const data = await reader.read();
+          const data = await read();
           if (data.done) throw new Error('Incomplete gzip data');
 
           bytes = data.value;
@@ -168,7 +174,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
           zip.set(bytes, b);
           b += bytesLength;
 
-          const data = await reader.read();
+          const data = await read();
           if (data.done) break;
 
           bytes = data.value;
@@ -191,7 +197,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true)
             zip[b++] = i < copyBytes ? zip[bPrev - copyBytes + i] : bytes[bytesLength - 8 + i];
           }
 
-          const data = await reader.read();
+          const data = await read();
           if (data.done) break;
 
           bytes = data.value;
