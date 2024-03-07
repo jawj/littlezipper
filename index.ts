@@ -32,8 +32,7 @@ const
   hasCompressionStreams = typeof CompressionStream !== 'undefined',
   textEncoder = new TextEncoder(),
   sum = (ns: number[]) => ns.reduce((memo, n) => memo + n, 0),
-  ui8 = Uint8Array,  // saves a few bytes when minified
-  gzipHeaderBytes = 10;
+  ui8 = Uint8Array;  // saves a few bytes when minified
 
 function makeGzipReadFn(dataIn: Uint8Array) {
   const 
@@ -58,7 +57,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     totalDataSize = sum(fileData.map(data => data.byteLength)),
     totalFileNamesSize = sum(fileNames.map(name => name.byteLength)),
     centralDirectorySize = numFiles * 46 + totalFileNamesSize,
-    // if deflate actually expands the data, which can happen, we'll just stick it in uncompressed
+    // if deflate actually expands the data, which can happen, we'll just stick it in uncompressed, so uncompressed size is worst case
     maxZipSize = totalDataSize
       + numFiles * 30 + totalFileNamesSize  // local headers
       + centralDirectorySize + 22,  // 22 = cental directory trailer
@@ -154,8 +153,8 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
           }
 
           // check end of header
-          if (bytesEndOffset >= gzipHeaderBytes) {
-            bytes = bytes.subarray(gzipHeaderBytes - bytesStartOffset);  // length could be zero
+          if (bytesEndOffset >= 10 /* gzip header bytes */) {
+            bytes = bytes.subarray(10 - bytesStartOffset);  // length could be zero
             break;
           }
         }
