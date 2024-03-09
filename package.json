@@ -2,17 +2,22 @@
   "name": "littlezip",
   "version": "0.1.0",
   "description": "Extremely simple .zip file creation with no dependencies",
-  "main": "index.js",
   "files": [
     "index.js",
     "index.mjs",
-    "index.d.ts"
+    "index.d.ts",
+    "index.d.mts",
+    "README.md"
   ],
+  "exports": {
+    "require": "./index.js",
+    "import": "./index.mjs"
+  },
   "scripts": {
     "buildCjs": "esbuild index.ts --bundle --format=cjs --minify --outfile=index.js",
     "buildEsm": "esbuild index.ts --bundle --format=esm --minify --outfile=index.mjs",
     "buildTest": "esbuild test.ts --bundle --platform=node --outfile=test.js",
-    "build": "npm run buildCjs && npm run buildEsm",
+    "build": "npm run buildCjs && npm run buildEsm && cp index.d.ts index.d.mts",
     "test": "tsc --noEmit && npm run buildTest && node test.js"
   },
   "keywords": [
