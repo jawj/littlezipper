@@ -1,7 +1,7 @@
-
-import { createZip } from './index';
-import * as fs from 'node:fs';
-import * as cp from 'node:child_process';
+import { createZip } from '.';
+import { writeFileSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { webcrypto as crypto } from 'crypto';  // for older Node versions
 
 const testStr = "The quick brown fox jumps over the lazy dog.\n";
 
@@ -96,8 +96,8 @@ async function test() {
       for (let i = 0; i < 1000; i++) {
         const zip = await makeTestZip(compress, makeReadFn);
         const file = `testfiles/z_${i}.zip`;
-        fs.writeFileSync(file, zip);
-        cp.execFileSync('/usr/bin/unzip', ['-t', file]);  // throws error on non-zero exit
+        writeFileSync(file, zip);
+        execFileSync('/usr/bin/unzip', ['-t', file]);  // throws error on non-zero exit
       }
     }
   }
