@@ -23,8 +23,8 @@
 import { crc32 } from './crc32';
 
 export interface File {
+  path: string;
   data: string | ArrayBuffer | Uint8Array;
-  name: string;
   lastModified?: Date;
 }
 
@@ -49,16 +49,16 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     localHeaderOffsets = [],
     attemptDeflate = hasCompressionStreams && compressWhenPossible,
     numFiles = inputFiles.length,
-    fileNames = inputFiles.map(file => textEncoder.encode(file.name)),
+    filePaths = inputFiles.map(file => textEncoder.encode(file.path)),
     fileData = inputFiles.map(({ data }) =>
       typeof data === 'string' ? textEncoder.encode(data) :
         data instanceof ArrayBuffer ? new Uint8Array(data) : data),
     totalDataSize = byteLengthSum(fileData),
-    totalFileNamesSize = byteLengthSum(fileNames),
-    centralDirectorySize = numFiles * 46 + totalFileNamesSize,
+    totalFilePathsSize = byteLengthSum(filePaths),
+    centralDirectorySize = numFiles * 46 + totalFilePathsSize,
     // if deflate expands the data, which can happen, we just stick it in uncompressed, so the uncompressed size is worst case
     maxZipSize = totalDataSize
-      + numFiles * 30 + totalFileNamesSize  // local headers
+      + numFiles * 30 + totalFilePathsSize  // local headers
       + centralDirectorySize + 22,  // 22 = cental directory trailer
     now = new Date(),
     zip = new Uint8Array(maxZipSize);
@@ -70,7 +70,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     localHeaderOffsets[fileIndex] = b;
     
     const
-      fileName = fileNames[fileIndex],
+      fileName = filePaths[fileIndex],
       fileNameSize = fileName.byteLength,
       uncompressed = fileData[fileIndex],
       uncompressedSize = uncompressed.byteLength,
@@ -246,7 +246,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
   for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
     const
       localHeaderOffset = localHeaderOffsets[fileIndex],
-      fileName = fileNames[fileIndex],
+      fileName = filePaths[fileIndex],
       fileNameSize = fileName.byteLength;
 
     // signature

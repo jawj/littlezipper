@@ -20,7 +20,7 @@ function makeTestZip(compress: boolean, makeReadFn: undefined | typeof byteByByt
       crypto.getRandomValues(data as Uint8Array);
     }
     rawFiles.push({
-      name: `f_${i}.${typeof data === 'string' ? 'txt' : 'bin'}`,
+      path: `f_${i}.${typeof data === 'string' ? 'txt' : 'bin'}`,
       data,
     });
   } while (Math.random() < 0.667);
