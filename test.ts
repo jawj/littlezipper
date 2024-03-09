@@ -5,7 +5,7 @@ import * as cp from 'node:child_process';
 
 const testStr = "The quick brown fox jumps over the lazy dog.\n";
 
-function makeTestZip(makeReadFn: undefined | typeof makeByteByByteReadFn) {
+function makeTestZip(compress: boolean, makeReadFn: undefined | typeof byteByByteReadFn) {
   const rawFiles = [];
   let i = 0;
   do {
@@ -23,12 +23,12 @@ function makeTestZip(makeReadFn: undefined | typeof makeByteByByteReadFn) {
       name: `f_${i}.${typeof data === 'string' ? 'txt' : 'bin'}`,
       data,
     });
-  } while (Math.random() < 0.5);
+  } while (Math.random() < 0.667);
 
-  return createZip(rawFiles, true, makeReadFn);
+  return createZip(rawFiles, compress, makeReadFn);
 }
 
-function makeByteByByteReadFn(dataIn: Uint8Array) {
+function byteByByteReadFn(dataIn: Uint8Array) {
   const
     cs = new CompressionStream('gzip'),
     writer = cs.writable.getWriter(),
@@ -57,7 +57,7 @@ function makeByteByByteReadFn(dataIn: Uint8Array) {
   }
 }
 
-function makeAllInOneReadFunction(dataIn: Uint8Array) {
+function singleChunkReadFn(dataIn: Uint8Array) {
   const
     cs = new CompressionStream('gzip'),
     writer = cs.writable.getWriter(),
@@ -66,7 +66,7 @@ function makeAllInOneReadFunction(dataIn: Uint8Array) {
   writer.write(dataIn);
   writer.close();
 
-  let 
+  let
     buffer = new Uint8Array(),
     returned = false;
 
@@ -89,13 +89,16 @@ function makeAllInOneReadFunction(dataIn: Uint8Array) {
 }
 
 async function test() {
-  for (const makeReadFn of [undefined, makeByteByByteReadFn, makeAllInOneReadFunction]) {
-    console.log(makeReadFn?.name);
-    for (let i = 0; i < 1000; i++) {
-      const zip = await makeTestZip(makeReadFn);
-      const file = `testfiles/f_${i}.zip`;
-      fs.writeFileSync(file, zip);
-      cp.execFileSync('/usr/bin/unzip', ['-t', file]);  // throws error on non-zero exit
+  for (const compress of [true, false]) {
+    console.log('compress:', compress);
+    for (const makeReadFn of [undefined, byteByByteReadFn, singleChunkReadFn]) {
+      console.log('  read function:', makeReadFn?.name);
+      for (let i = 0; i < 1000; i++) {
+        const zip = await makeTestZip(compress, makeReadFn);
+        const file = `testfiles/z_${i}.zip`;
+        fs.writeFileSync(file, zip);
+        cp.execFileSync('/usr/bin/unzip', ['-t', file]);  // throws error on non-zero exit
+      }
     }
   }
 }

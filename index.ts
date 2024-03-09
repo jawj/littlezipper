@@ -1,5 +1,5 @@
 /**
- * LittleZIP
+ * littlezip
  * Copyright (C) George MacKerron 2024
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,8 +31,7 @@ export interface File {
 const
   hasCompressionStreams = typeof CompressionStream !== 'undefined',
   textEncoder = new TextEncoder(),
-  sum = (ns: number[]) => ns.reduce((memo, n) => memo + n, 0),
-  ui8 = Uint8Array;  // saves a few bytes when minified
+  byteLengthSum = (ns: Uint8Array[]) => ns.reduce((memo, n) => memo + n.byteLength, 0);
 
 function makeGzipReadFn(dataIn: Uint8Array) {
   const 
@@ -53,23 +52,23 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     fileNames = inputFiles.map(file => textEncoder.encode(file.name)),
     fileData = inputFiles.map(({ data }) =>
       typeof data === 'string' ? textEncoder.encode(data) :
-        data instanceof ArrayBuffer ? new ui8(data) : data),
-    totalDataSize = sum(fileData.map(data => data.byteLength)),
-    totalFileNamesSize = sum(fileNames.map(name => name.byteLength)),
+        data instanceof ArrayBuffer ? new Uint8Array(data) : data),
+    totalDataSize = byteLengthSum(fileData),
+    totalFileNamesSize = byteLengthSum(fileNames),
     centralDirectorySize = numFiles * 46 + totalFileNamesSize,
-    // if deflate actually expands the data, which can happen, we'll just stick it in uncompressed, so uncompressed size is worst case
+    // if deflate expands the data, which can happen, we just stick it in uncompressed, so the uncompressed size is worst case
     maxZipSize = totalDataSize
       + numFiles * 30 + totalFileNamesSize  // local headers
       + centralDirectorySize + 22,  // 22 = cental directory trailer
     now = new Date(),
-    zip = new ui8(maxZipSize);
+    zip = new Uint8Array(maxZipSize);
 
   let b = 0;  // zip byte index
 
   // write local headers and compressed files
   for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
     localHeaderOffsets[fileIndex] = b;
-
+    
     const
       fileName = fileNames[fileIndex],
       fileNameSize = fileName.byteLength,
@@ -78,6 +77,10 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
       lm = inputFiles[fileIndex].lastModified ?? now,
       mtime = Math.floor(lm.getSeconds() / 2) + (lm.getMinutes() << 5) + (lm.getHours() << 11),
       mdate = lm.getDate() + ((lm.getMonth() + 1) << 5) + ((lm.getFullYear() - 1980) << 9);
+
+    let 
+      compressedSize = 0,
+      abortDeflate = false;
 
     // signature
     zip[b++] = 0x50; // P
@@ -88,22 +91,22 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     zip[b] = 20;  // 2.0
     // 0
     // general purpose flag
-    b += 3;  // 0
+    // 0
+    b += 3;
     zip[b++] = 0b1000;  // bit 11 (indexed from 0) => UTF-8 file names
-    // compression (come back later)
-    const compressionOffset = b;
-    b += 2;  // 0
+    // compression
+    const bDeflate8 = b;
+    // 0 -- we'll modify this compression flag later if we deflate the file
+    // 0
+    b += 2;
     // mtime, mdate
     zip[b++] = mtime & 0xff;
     zip[b++] = mtime >> 8;
     zip[b++] = mdate & 0xff;
     zip[b++] = mdate >> 8;
-    // crc32 (come back later)
-    let crcOffset = b;
-    b += 4;
-    // compressed size (come back later)
-    let compressedSizeOffset = b;
-    b += 4;
+    // CRC (4 bytes) then compressed size (4 bytes) -- we'll write these later 
+    let bCrcCompSize = b;
+    b += 8;
     // uncompressed size
     zip[b++] = uncompressedSize & 0xff;
     zip[b++] = (uncompressedSize >> 8) & 0xff;
@@ -114,13 +117,13 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     zip[b] = (fileNameSize >> 8) & 0xff;
     // extra field length
     // 0
-    b += 3;  // 0
+    // 0
+    b += 3;
     // file name
     zip.set(fileName, b);
     b += fileNameSize;
 
     // compressed data
-    let compressedSize: number;
     if (attemptDeflate) {
       const
         compressedStart = b,
@@ -129,14 +132,13 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
       let
         bytes: Uint8Array,
         bytesStartOffset = 0,
-        bytesEndOffset = 0,
-        abortDeflate = false;
+        bytesEndOffset = 0;
 
       deflate: {
         // check and skip gzip header
         for (; ;) {
           const data = await read();
-          if (data.done) throw new Error('Incomplete gzip data');
+          if (data.done) throw new Error('Bad gzip data');
 
           bytes = data.value;
           bytesStartOffset = bytesEndOffset;
@@ -205,42 +207,38 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
 
       // backtrack and retrieve CRC
       b -= 8;
-      zip[crcOffset++] = zip[b++];
-      zip[crcOffset++] = zip[b++];
-      zip[crcOffset++] = zip[b++];
-      zip[crcOffset++] = zip[b++];
+      zip[bCrcCompSize++] = zip[b++];
+      zip[bCrcCompSize++] = zip[b++];
+      zip[bCrcCompSize++] = zip[b++];
+      zip[bCrcCompSize++] = zip[b++];
       b -= 4;
 
-      if (abortDeflate) {
-        // leave zip[compressionOffset] as is: it's 0, which already means no compression
-        zip.set(uncompressed, b);
-        b += uncompressedSize;
-        compressedSize = uncompressedSize;
-
-      } else {
-        zip[compressionOffset] = 8;  // deflate
+      if (!abortDeflate) {
+        zip[bDeflate8] = 8;  // deflate
         compressedSize = b - compressedStart;
       }
-
-    } else {
-      // leave zip[compressionOffset] as is: it's 0, which already means no compression
+    }
+    
+    if (!attemptDeflate || abortDeflate) {
       zip.set(uncompressed, b);
       b += uncompressedSize;
       compressedSize = uncompressedSize;
+    }
 
+    if (!attemptDeflate) {
       // calculate CRC ourselves
       const crc = crc32(uncompressed);
-      zip[b++] = crc & 0xff;
-      zip[b++] = (crc >> 8) & 0xff;
-      zip[b++] = (crc >> 16) & 0xff;
-      zip[b++] = (crc >> 24);
+      zip[bCrcCompSize++] = crc & 0xff;
+      zip[bCrcCompSize++] = (crc >> 8) & 0xff;
+      zip[bCrcCompSize++] = (crc >> 16) & 0xff;
+      zip[bCrcCompSize++] = (crc >> 24);
     }
 
     // fill in compressed size
-    zip[compressedSizeOffset++] = compressedSize & 0xff;
-    zip[compressedSizeOffset++] = (compressedSize >> 8) & 0xff;
-    zip[compressedSizeOffset++] = (compressedSize >> 16) & 0xff;
-    zip[compressedSizeOffset++] = (compressedSize >> 24);
+    zip[bCrcCompSize++] = compressedSize & 0xff;
+    zip[bCrcCompSize++] = (compressedSize >> 8) & 0xff;
+    zip[bCrcCompSize++] = (compressedSize >> 16) & 0xff;
+    zip[bCrcCompSize++] = (compressedSize >> 24);
   }
 
   // write central directory
@@ -264,9 +262,9 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     b += 2;  // 0
     // copy local header from [general purpose flag] to [extra field length]
     zip.set(zip.subarray(localHeaderOffset + 6, localHeaderOffset + 30), b);
-    // 24 * 0
     // file comment length, disk number, internal attr, external attr
-    b += 34; // 10 * 0
+    // 10 * 0
+    b += 34;
     // local header offset
     zip[b++] = localHeaderOffset & 0xff;
     zip[b++] = (localHeaderOffset >> 8) & 0xff;
@@ -284,7 +282,8 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
   zip[b++] = 0x05;
   zip[b] = 0x06;
   // disk numbers x 2
-  b += 5;  // 4 * 0
+  // 4 * 0
+  b += 5;
   // disk entries
   zip[b++] = numFiles & 0xff;
   zip[b++] = (numFiles >> 8) & 0xff;
