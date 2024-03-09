@@ -23,8 +23,8 @@
     const fileData = await Promise.all([...files].map(async file => {
       const data = await file.arrayBuffer();
       return {
+        path: file.name,
         data: new Uint8Array(data),
-        name: file.name,
         lastModified: file.lastModifiedDate,
       };
     }));
