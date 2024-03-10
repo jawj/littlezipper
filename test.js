@@ -1,148 +1,202 @@
 "use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJS = (cb, mod) => function __require() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 
-// index.js
-var require_zipkiss = __commonJS({
-  "index.js"(exports2, module2) {
-    "use strict";
-    var I = Object.defineProperty;
-    var Y = Object.getOwnPropertyDescriptor;
-    var j = Object.getOwnPropertyNames;
-    var q = Object.prototype.hasOwnProperty;
-    var J = (f, o) => {
-      for (var s in o)
-        I(f, s, { get: o[s], enumerable: true });
-    };
-    var K = (f, o, s, r) => {
-      if (o && typeof o == "object" || typeof o == "function")
-        for (let a of j(o))
-          !q.call(f, a) && a !== s && I(f, a, { get: () => o[a], enumerable: !(r = Y(o, a)) || r.enumerable });
-      return f;
-    };
-    var Q = (f) => K(I({}, "__esModule", { value: true }), f);
-    var B = {};
-    J(B, { createZip: () => $ });
-    module2.exports = Q(B);
-    var v;
-    var V = () => {
-      let f = Int32Array, o = new f(256), s = new f(4096), r, a, l;
-      for (a = 0; a < 256; a++)
-        r = a, r = r & 1 ? -306674912 ^ r >>> 1 : r >>> 1, r = r & 1 ? -306674912 ^ r >>> 1 : r >>> 1, r = r & 1 ? -306674912 ^ r >>> 1 : r >>> 1, r = r & 1 ? -306674912 ^ r >>> 1 : r >>> 1, r = r & 1 ? -306674912 ^ r >>> 1 : r >>> 1, r = r & 1 ? -306674912 ^ r >>> 1 : r >>> 1, r = r & 1 ? -306674912 ^ r >>> 1 : r >>> 1, s[a] = o[a] = r & 1 ? -306674912 ^ r >>> 1 : r >>> 1;
-      for (a = 0; a < 256; a++)
-        for (l = o[a], r = 256 + a; r < 4096; r += 256)
-          l = s[r] = l >>> 8 ^ o[l & 255];
-      for (v = [o], a = 1; a < 16; a++)
-        v[a] = s.subarray(a * 256, (a + 1) * 256);
-    };
-    var W = (f, o = 0) => {
-      v || V();
-      let [s, r, a, l, S, L, C, U, g, M, O, t, e, p, i, b] = v, c = o ^ -1, d = f.length - 15, n = 0;
-      for (; n < d; )
-        c = b[f[n++] ^ c & 255] ^ i[f[n++] ^ c >> 8 & 255] ^ p[f[n++] ^ c >> 16 & 255] ^ e[f[n++] ^ c >>> 24] ^ t[f[n++]] ^ O[f[n++]] ^ M[f[n++]] ^ g[f[n++]] ^ U[f[n++]] ^ C[f[n++]] ^ L[f[n++]] ^ S[f[n++]] ^ l[f[n++]] ^ a[f[n++]] ^ r[f[n++]] ^ s[f[n++]];
-      for (d += 15; n < d; )
-        c = c >>> 8 ^ s[(c ^ f[n++]) & 255];
-      return ~c;
-    };
-    var X = typeof CompressionStream < "u";
-    var Z = new TextEncoder();
-    var G = (f) => f.reduce((o, s) => o + s.byteLength, 0);
-    function _(f) {
-      let o = new CompressionStream("gzip"), s = o.writable.getWriter(), r = o.readable.getReader();
-      return s.write(f), s.close(), () => r.read();
-    }
-    async function $(f, o = true, s = _) {
-      let r = [], a = X && o, l = f.length, S = f.map((i) => Z.encode(i.name)), L = f.map(({ data: i }) => typeof i == "string" ? Z.encode(i) : i instanceof ArrayBuffer ? new Uint8Array(i) : i), C = G(L), U = G(S), g = l * 46 + U, M = C + l * 30 + U + g + 22, O = /* @__PURE__ */ new Date(), t = new Uint8Array(M), e = 0;
-      for (let i = 0; i < l; i++) {
-        r[i] = e;
-        let b = S[i], c = b.byteLength, d = L[i], n = d.byteLength, T = f[i].lastModified ?? O, F = Math.floor(T.getSeconds() / 2) + (T.getMinutes() << 5) + (T.getHours() << 11), H = T.getDate() + (T.getMonth() + 1 << 5) + (T.getFullYear() - 1980 << 9), h = 0, z = false;
-        t[e++] = 80, t[e++] = 75, t[e++] = 3, t[e++] = 4, t[e] = 20, e += 3, t[e++] = 8;
-        let P = e;
-        e += 2, t[e++] = F & 255, t[e++] = F >> 8, t[e++] = H & 255, t[e++] = H >> 8;
-        let x = e;
-        if (e += 8, t[e++] = n & 255, t[e++] = n >> 8 & 255, t[e++] = n >> 16 & 255, t[e++] = n >> 24, t[e++] = c & 255, t[e] = c >> 8 & 255, e += 3, t.set(b, e), e += c, a) {
-          let m = e, E = s(d), y, A = 0, k = 0;
-          e: {
-            for (; ; ) {
-              let u = await E();
-              if (u.done)
-                throw new Error("Bad gzip data");
-              if (y = u.value, A = k, k = A + y.length, A <= 3 && k > 3 && y[3 - A] & 30) {
-                z = true;
-                break e;
-              }
-              if (k >= 10) {
-                y = y.subarray(10 - A);
-                break;
-              }
-            }
-            for (; ; ) {
-              let u = e - m, w = y.byteLength;
-              if (u + w >= n) {
-                z = true;
-                break e;
-              }
-              t.set(y, e), e += w;
-              let N = await E();
-              if (N.done)
-                break;
-              y = N.value;
+// crc32.ts
+var T;
+var init = () => {
+  const i32 = Int32Array, T0 = new i32(256), t = new i32(4096);
+  let c, n, v;
+  for (n = 0; n < 256; n++) {
+    c = n;
+    c = c & 1 ? -306674912 ^ c >>> 1 : c >>> 1;
+    c = c & 1 ? -306674912 ^ c >>> 1 : c >>> 1;
+    c = c & 1 ? -306674912 ^ c >>> 1 : c >>> 1;
+    c = c & 1 ? -306674912 ^ c >>> 1 : c >>> 1;
+    c = c & 1 ? -306674912 ^ c >>> 1 : c >>> 1;
+    c = c & 1 ? -306674912 ^ c >>> 1 : c >>> 1;
+    c = c & 1 ? -306674912 ^ c >>> 1 : c >>> 1;
+    t[n] = T0[n] = c & 1 ? -306674912 ^ c >>> 1 : c >>> 1;
+  }
+  for (n = 0; n < 256; n++) {
+    v = T0[n];
+    for (c = 256 + n; c < 4096; c += 256)
+      v = t[c] = v >>> 8 ^ T0[v & 255];
+  }
+  T = [T0];
+  for (n = 1; n < 16; n++)
+    T[n] = t.subarray(n * 256, (n + 1) * 256);
+};
+var crc32 = (B, seed = 0) => {
+  if (!T)
+    init();
+  const [T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, Ta, Tb, Tc, Td, Te, Tf] = T;
+  let crc = seed ^ -1, l = B.length - 15, i = 0;
+  for (; i < l; )
+    crc = Tf[B[i++] ^ crc & 255] ^ Te[B[i++] ^ crc >> 8 & 255] ^ Td[B[i++] ^ crc >> 16 & 255] ^ Tc[B[i++] ^ crc >>> 24] ^ Tb[B[i++]] ^ Ta[B[i++]] ^ T9[B[i++]] ^ T8[B[i++]] ^ T7[B[i++]] ^ T6[B[i++]] ^ T5[B[i++]] ^ T4[B[i++]] ^ T3[B[i++]] ^ T2[B[i++]] ^ T1[B[i++]] ^ T0[B[i++]];
+  l += 15;
+  while (i < l)
+    crc = crc >>> 8 ^ T0[(crc ^ B[i++]) & 255];
+  return ~crc;
+};
+
+// index.ts
+var hasCompressionStreams = typeof CompressionStream !== "undefined";
+var textEncoder = new TextEncoder();
+var byteLengthSum = (ns) => ns.reduce((memo, n) => memo + n.byteLength, 0);
+function makeGzipReadFn(dataIn) {
+  const cs = new CompressionStream("gzip"), writer = cs.writable.getWriter(), reader = cs.readable.getReader();
+  writer.write(dataIn);
+  writer.close();
+  return () => reader.read();
+}
+async function createZip(inputFiles, compressWhenPossible = true, gzipReadFn = makeGzipReadFn) {
+  const localHeaderOffsets = [], attemptDeflate = hasCompressionStreams && compressWhenPossible, numFiles = inputFiles.length, filePaths = inputFiles.map((file) => textEncoder.encode(file.path)), fileData = inputFiles.map(({ data }) => typeof data === "string" ? textEncoder.encode(data) : data instanceof ArrayBuffer ? new Uint8Array(data) : data), totalDataSize = byteLengthSum(fileData), totalFilePathsSize = byteLengthSum(filePaths), centralDirectorySize = numFiles * 46 + totalFilePathsSize, maxZipSize = totalDataSize + numFiles * 30 + totalFilePathsSize + centralDirectorySize + 22, now = /* @__PURE__ */ new Date(), zip = new Uint8Array(maxZipSize);
+  let b = 0;
+  for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
+    localHeaderOffsets[fileIndex] = b;
+    const fileName = filePaths[fileIndex], fileNameSize = fileName.byteLength, uncompressed = fileData[fileIndex], uncompressedSize = uncompressed.byteLength, lm = inputFiles[fileIndex].lastModified ?? now, mtime = Math.floor(lm.getSeconds() / 2) + (lm.getMinutes() << 5) + (lm.getHours() << 11), mdate = lm.getDate() + (lm.getMonth() + 1 << 5) + (lm.getFullYear() - 1980 << 9);
+    let compressedSize = 0, abortDeflate = false;
+    zip[b++] = 80;
+    zip[b++] = 75;
+    zip[b++] = 3;
+    zip[b++] = 4;
+    zip[b] = 20;
+    b += 3;
+    zip[b++] = 8;
+    const bDeflate = b;
+    b += 2;
+    zip[b++] = mtime & 255;
+    zip[b++] = mtime >> 8;
+    zip[b++] = mdate & 255;
+    zip[b++] = mdate >> 8;
+    let bCrc = b;
+    b += 8;
+    zip[b++] = uncompressedSize & 255;
+    zip[b++] = uncompressedSize >> 8 & 255;
+    zip[b++] = uncompressedSize >> 16 & 255;
+    zip[b++] = uncompressedSize >> 24;
+    zip[b++] = fileNameSize & 255;
+    zip[b] = fileNameSize >> 8 & 255;
+    b += 3;
+    zip.set(fileName, b);
+    b += fileNameSize;
+    if (attemptDeflate) {
+      const compressedStart = b, read = gzipReadFn(uncompressed);
+      let bytes, bytesStartOffset = 0, bytesEndOffset = 0;
+      deflate: {
+        for (; ; ) {
+          const data = await read();
+          if (data.done)
+            throw new Error("Bad gzip data");
+          bytes = data.value;
+          bytesStartOffset = bytesEndOffset;
+          bytesEndOffset = bytesStartOffset + bytes.length;
+          if (bytesStartOffset <= 3 && bytesEndOffset > 3) {
+            const flags = bytes[3 - bytesStartOffset];
+            if (flags & 30) {
+              abortDeflate = true;
+              break deflate;
             }
           }
-          if (z)
-            for (; ; ) {
-              let u = y.byteLength, w = 8 - u, N = e;
-              e = m;
-              for (let D = 0; D < 8; D++)
-                t[e++] = D < w ? t[N - w + D] : y[u - 8 + D];
-              let R = await E();
-              if (R.done)
-                break;
-              y = R.value;
-            }
-          e -= 8, t[x++] = t[e++], t[x++] = t[e++], t[x++] = t[e++], t[x++] = t[e++], e -= 4, z || (t[P] = 8, h = e - m);
+          if (bytesEndOffset >= 10) {
+            bytes = bytes.subarray(10 - bytesStartOffset);
+            break;
+          }
         }
-        if ((!a || z) && (t.set(d, e), e += n, h = n), !a) {
-          let m = W(d);
-          t[x++] = m & 255, t[x++] = m >> 8 & 255, t[x++] = m >> 16 & 255, t[x++] = m >> 24;
+        for (; ; ) {
+          const bytesAlreadyWritten = b - compressedStart, bytesLength = bytes.byteLength;
+          if (bytesAlreadyWritten + bytesLength >= uncompressedSize) {
+            abortDeflate = true;
+            break deflate;
+          }
+          zip.set(bytes, b);
+          b += bytesLength;
+          const data = await read();
+          if (data.done)
+            break;
+          bytes = data.value;
         }
-        t[x++] = h & 255, t[x++] = h >> 8 & 255, t[x++] = h >> 16 & 255, t[x++] = h >> 24;
       }
-      let p = e;
-      for (let i = 0; i < l; i++) {
-        let b = r[i], c = S[i], d = c.byteLength;
-        t[e++] = 80, t[e++] = 75, t[e++] = 1, t[e++] = 2, t[e] = 20, e += 2, t[e] = 20, e += 2, t.set(t.subarray(b + 6, b + 30), e), e += 34, t[e++] = b & 255, t[e++] = b >> 8 & 255, t[e++] = b >> 16 & 255, t[e++] = b >> 24, t.set(c, e), e += d;
+      if (abortDeflate) {
+        for (; ; ) {
+          const bytesLength = bytes.byteLength, copyBytes = 8 - bytesLength, bPrev = b;
+          b = compressedStart;
+          for (let i = 0; i < 8; i++) {
+            zip[b++] = i < copyBytes ? zip[bPrev - copyBytes + i] : bytes[bytesLength - 8 + i];
+          }
+          const data = await read();
+          if (data.done)
+            break;
+          bytes = data.value;
+        }
+      } else {
+        zip[bDeflate] = 8;
+        compressedSize = b - compressedStart;
       }
-      return t[e++] = 80, t[e++] = 75, t[e++] = 5, t[e] = 6, e += 5, t[e++] = l & 255, t[e++] = l >> 8 & 255, t[e++] = l & 255, t[e++] = l >> 8 & 255, t[e++] = g & 255, t[e++] = g >> 8 & 255, t[e++] = g >> 16 & 255, t[e++] = g >> 24, t[e++] = p & 255, t[e++] = p >> 8 & 255, t[e++] = p >> 16 & 255, t[e] = p >> 24, t.subarray(0, e + 3);
+      b -= 8;
+      zip[bCrc++] = zip[b++];
+      zip[bCrc++] = zip[b++];
+      zip[bCrc++] = zip[b++];
+      zip[bCrc++] = zip[b++];
+      b -= 4;
     }
+    if (!attemptDeflate || abortDeflate) {
+      zip.set(uncompressed, b);
+      b += uncompressedSize;
+      compressedSize = uncompressedSize;
+    }
+    if (!attemptDeflate) {
+      const crc = crc32(uncompressed);
+      zip[bCrc++] = crc & 255;
+      zip[bCrc++] = crc >> 8 & 255;
+      zip[bCrc++] = crc >> 16 & 255;
+      zip[bCrc++] = crc >> 24;
+    }
+    zip[bCrc++] = compressedSize & 255;
+    zip[bCrc++] = compressedSize >> 8 & 255;
+    zip[bCrc++] = compressedSize >> 16 & 255;
+    zip[bCrc++] = compressedSize >> 24;
   }
-});
+  const centralDirectoryOffset = b;
+  for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
+    const localHeaderOffset = localHeaderOffsets[fileIndex], fileName = filePaths[fileIndex], fileNameSize = fileName.byteLength;
+    zip[b++] = 80;
+    zip[b++] = 75;
+    zip[b++] = 1;
+    zip[b++] = 2;
+    zip[b] = 20;
+    b += 2;
+    zip[b] = 20;
+    b += 2;
+    zip.set(zip.subarray(localHeaderOffset + 6, localHeaderOffset + 30), b);
+    b += 34;
+    zip[b++] = localHeaderOffset & 255;
+    zip[b++] = localHeaderOffset >> 8 & 255;
+    zip[b++] = localHeaderOffset >> 16 & 255;
+    zip[b++] = localHeaderOffset >> 24;
+    zip.set(fileName, b);
+    b += fileNameSize;
+  }
+  zip[b++] = 80;
+  zip[b++] = 75;
+  zip[b++] = 5;
+  zip[b] = 6;
+  b += 5;
+  zip[b++] = numFiles & 255;
+  zip[b++] = numFiles >> 8 & 255;
+  zip[b++] = numFiles & 255;
+  zip[b++] = numFiles >> 8 & 255;
+  zip[b++] = centralDirectorySize & 255;
+  zip[b++] = centralDirectorySize >> 8 & 255;
+  zip[b++] = centralDirectorySize >> 16 & 255;
+  zip[b++] = centralDirectorySize >> 24;
+  zip[b++] = centralDirectoryOffset & 255;
+  zip[b++] = centralDirectoryOffset >> 8 & 255;
+  zip[b++] = centralDirectoryOffset >> 16 & 255;
+  zip[b] = centralDirectoryOffset >> 24;
+  return zip.subarray(0, b + 3);
+}
 
 // test.ts
-var import__ = __toESM(require_zipkiss());
 var import_fs = require("fs");
 var import_child_process = require("child_process");
 var import_crypto = require("crypto");
@@ -162,11 +216,11 @@ function makeTestZip(compress, makeReadFn) {
       import_crypto.webcrypto.getRandomValues(data);
     }
     rawFiles.push({
-      name: `f_${i}.${typeof data === "string" ? "txt" : "bin"}`,
+      path: `f_${i}.${typeof data === "string" ? "txt" : "bin"}`,
       data
     });
   } while (Math.random() < 0.667);
-  return (0, import__.createZip)(rawFiles, compress, makeReadFn);
+  return createZip(rawFiles, compress, makeReadFn);
 }
 function byteByByteReadFn(dataIn) {
   const cs = new CompressionStream("gzip"), writer = cs.writable.getWriter(), reader = cs.readable.getReader();
