@@ -12,6 +12,12 @@ The library is currently suitable for small- and medium-sized files, since it br
 
 Potential future improvements could include implementing a `TransformStream` instead, which could enable smaller memory use and larger file sizes. However, the `.zip` format annoyingly puts the CRC and compressed data size _before_ the compressed data, which limits opportunities for memory saving.
 
+## Installation
+
+```bash
+npm install littlezip
+```
+
 ## Usage
 
 The library exposes a single function, `createZip`.
