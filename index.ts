@@ -142,7 +142,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
 
           bytes = data.value;
           bytesStartOffset = bytesEndOffset;
-          bytesEndOffset = bytesStartOffset + bytes.length;
+          bytesEndOffset = bytesStartOffset + bytes.byteLength;
 
           // check flags value
           // note: we assume no optional fields; if there are any, we give up on compression
@@ -205,7 +205,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
         }
 
       } else {
-        zip[bDeflate] = 8;  // deflate
+        zip[bDeflate] = 8;  // set compression flag to 8 = deflate
         compressedSize = b - compressedStart;
       }
 

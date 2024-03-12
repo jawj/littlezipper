@@ -89,7 +89,7 @@ async function createZip(inputFiles, compressWhenPossible = true, gzipReadFn = m
             throw new Error("Bad gzip data");
           bytes = data.value;
           bytesStartOffset = bytesEndOffset;
-          bytesEndOffset = bytesStartOffset + bytes.length;
+          bytesEndOffset = bytesStartOffset + bytes.byteLength;
           if (bytesStartOffset <= 3 && bytesEndOffset > 3) {
             const flags = bytes[3 - bytesStartOffset];
             if (flags & 30) {
@@ -201,7 +201,7 @@ var import_fs = require("fs");
 var import_child_process = require("child_process");
 var import_crypto = require("crypto");
 var testStr = "The quick brown fox jumps over the lazy dog.\n";
-function makeTestZip(compress, makeReadFn) {
+function makeTestData() {
   const rawFiles = [];
   let i = 0;
   do {
@@ -216,11 +216,15 @@ function makeTestZip(compress, makeReadFn) {
       import_crypto.webcrypto.getRandomValues(data);
     }
     rawFiles.push({
-      path: `f_${i}.${typeof data === "string" ? "txt" : "bin"}`,
+      path: `f_${i}.${typeof data === "string" ? "txt" : "dat"}`,
+      // .dat and not .bin, because Macs try to extract .bin files!
       data
     });
   } while (Math.random() < 0.667);
-  return createZip(rawFiles, compress, makeReadFn);
+  return rawFiles;
+}
+function makeTestZip(compress, makeReadFn) {
+  return createZip(makeTestData(), compress, makeReadFn);
 }
 function byteByByteReadFn(dataIn) {
   const cs = new CompressionStream("gzip"), writer = cs.writable.getWriter(), reader = cs.readable.getReader();

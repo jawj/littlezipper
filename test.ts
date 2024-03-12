@@ -5,7 +5,7 @@ import { webcrypto as crypto } from 'crypto';  // for older Node versions
 
 const testStr = "The quick brown fox jumps over the lazy dog.\n";
 
-function makeTestZip(compress: boolean, makeReadFn: undefined | typeof byteByByteReadFn) {
+function makeTestData() {
   const rawFiles = [];
   let i = 0;
   do {
@@ -20,12 +20,15 @@ function makeTestZip(compress: boolean, makeReadFn: undefined | typeof byteByByt
       crypto.getRandomValues(data as Uint8Array);
     }
     rawFiles.push({
-      path: `f_${i}.${typeof data === 'string' ? 'txt' : 'bin'}`,
+      path: `f_${i}.${typeof data === 'string' ? 'txt' : 'dat'}`,  // .dat and not .bin, because Macs try to extract .bin files!
       data,
     });
   } while (Math.random() < 0.667);
+  return rawFiles;
+}
 
-  return createZip(rawFiles, compress, makeReadFn);
+function makeTestZip(compress: boolean, makeReadFn: undefined | typeof byteByByteReadFn) {
+  return createZip(makeTestData(), compress, makeReadFn);
 }
 
 function byteByByteReadFn(dataIn: Uint8Array) {
