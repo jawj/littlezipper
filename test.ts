@@ -92,9 +92,9 @@ function singleChunkReadFn(dataIn: Uint8Array) {
 }
 
 async function test() {
-  for (const compress of [true, false]) {
+  for (const compress of [false, true]) {
     console.log('compress:', compress);
-    for (const makeReadFn of [undefined, byteByByteReadFn, singleChunkReadFn]) {
+    for (const makeReadFn of [byteByByteReadFn, singleChunkReadFn, undefined]) {
       console.log('  read function:', makeReadFn?.name);
       for (let i = 0; i < 1000; i++) {
         const zip = await makeTestZip(compress, makeReadFn);

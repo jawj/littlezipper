@@ -23,7 +23,9 @@ const init = () => {
     i32 = Int32Array,
     T0 = new i32(256),
     t = new i32(4096);
+
   let c: number, n: number, v: number;
+
   for (n = 0; n < 256; n++) {
     c = n;
     c = ((c & 1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));  // nice bit of loop-unrolling
@@ -50,6 +52,7 @@ export const crc32 = (B: Uint8Array, seed = 0) => {
     crc = seed ^ -1,
     l = B.length - 15,
     i = 0;
+
   for (; i < l;) crc =
     Tf[B[i++] ^ (crc & 255)] ^
     Te[B[i++] ^ ((crc >> 8) & 255)] ^

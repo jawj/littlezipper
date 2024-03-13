@@ -31,7 +31,8 @@ export interface File {
 const
   hasCompressionStreams = typeof CompressionStream !== 'undefined',
   textEncoder = new TextEncoder(),
-  byteLengthSum = (ns: Uint8Array[]) => ns.reduce((memo, n) => memo + n.byteLength, 0);
+  lengthSum = (ns: Uint8Array[]) => ns.reduce((memo, n) => memo + n.length, 0),
+  ui8 = Uint8Array;
 
 function makeGzipReadFn(dataIn: Uint8Array) {
   const
@@ -52,16 +53,16 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     filePaths = inputFiles.map(file => textEncoder.encode(file.path)),
     fileData = inputFiles.map(({ data }) =>
       typeof data === 'string' ? textEncoder.encode(data) :
-        data instanceof ArrayBuffer ? new Uint8Array(data) : data),
-    totalDataSize = byteLengthSum(fileData),
-    totalFilePathsSize = byteLengthSum(filePaths),
+        data instanceof ArrayBuffer ? new ui8(data) : data),
+    totalDataSize = lengthSum(fileData),
+    totalFilePathsSize = lengthSum(filePaths),
     centralDirectorySize = numFiles * 46 + totalFilePathsSize,
     // if deflate expands the data, which can happen, we just stick it in uncompressed, so the uncompressed size is worst case
     maxZipSize = totalDataSize
       + numFiles * 30 + totalFilePathsSize  // local headers
       + centralDirectorySize + 22,  // 22 = cental directory trailer
     now = new Date(),
-    zip = new Uint8Array(maxZipSize);
+    zip = new ui8(maxZipSize);
 
   let b = 0;  // zip byte index
 
@@ -70,12 +71,12 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     localHeaderOffsets[fileIndex] = b;
 
     const
-      fileName = filePaths[fileIndex],
-      fileNameSize = fileName.byteLength,
+      filePath = filePaths[fileIndex],
+      filePathSize = filePath.length,
       uncompressed = fileData[fileIndex],
-      uncompressedSize = uncompressed.byteLength,
+      uncompressedSize = uncompressed.length,
       lm = inputFiles[fileIndex].lastModified ?? now,
-      mtime = Math.floor(lm.getSeconds() / 2) + (lm.getMinutes() << 5) + (lm.getHours() << 11),
+      mtime = ((lm.getSeconds() / 2) | 0) + (lm.getMinutes() << 5) + (lm.getHours() << 11),
       mdate = lm.getDate() + ((lm.getMonth() + 1) << 5) + ((lm.getFullYear() - 1980) << 9);
 
     let
@@ -88,17 +89,14 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     zip[b++] = 0x03;
     zip[b++] = 0x04;
     // version needed to extract
-    zip[b] = 20;  // 2.0
-    // 0
+    zip[b++] = 20;  // 2.0
+    zip[b++] = 0;
     // general purpose flag
-    // 0
-    b += 3;
+    zip[b++] = 0;
     zip[b++] = 0b1000;  // bit 11 (indexed from 0) => UTF-8 file names
     // compression
     const bDeflate = b;
-    // 0 -- we'll modify this compression flag later if we deflate the file
-    // 0
-    b += 2;
+    zip[b++] = zip[b++] = 0;  // we'll modify this compression flag later if we deflate the file
     // mtime, mdate
     zip[b++] = mtime & 0xff;
     zip[b++] = mtime >> 8;
@@ -113,15 +111,13 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     zip[b++] = (uncompressedSize >> 16) & 0xff;
     zip[b++] = (uncompressedSize >> 24);
     // file name length
-    zip[b++] = fileNameSize & 0xff;
-    zip[b] = (fileNameSize >> 8) & 0xff;
+    zip[b++] = filePathSize & 0xff;
+    zip[b++] = filePathSize >> 8;
     // extra field length
-    // 0
-    // 0
-    b += 3;
+    zip[b++] = zip[b++] = 0;
     // file name
-    zip.set(fileName, b);
-    b += fileNameSize;
+    zip.set(filePath, b);
+    b += filePathSize;
 
     // compressed data
     if (attemptDeflate) {
@@ -142,7 +138,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
 
           bytes = data.value;
           bytesStartOffset = bytesEndOffset;
-          bytesEndOffset = bytesStartOffset + bytes.byteLength;
+          bytesEndOffset = bytesStartOffset + bytes.length;
 
           // check flags value
           // note: we assume no optional fields; if there are any, we give up on compression
@@ -165,9 +161,9 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
         for (; ;) {
           const
             bytesAlreadyWritten = b - compressedStart,
-            bytesLength = bytes.byteLength;
+            bytesLength = bytes.length;
 
-          if (bytesAlreadyWritten + bytesLength >= uncompressedSize) {
+          if (bytesAlreadyWritten + bytesLength >= uncompressedSize + 8) {  // allow 8 bytes for CRC and length at end
             abortDeflate = true;
             break deflate;
           }
@@ -189,7 +185,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
 
         for (; ;) {
           const
-            bytesLength = bytes.byteLength,
+            bytesLength = bytes.length,
             copyBytes = 8 - bytesLength,
             bPrev = b;
 
@@ -203,10 +199,6 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
 
           bytes = data.value;
         }
-
-      } else {
-        zip[bDeflate] = 8;  // set compression flag to 8 = deflate
-        compressedSize = b - compressedStart;
       }
 
       // backtrack and retrieve CRC
@@ -216,6 +208,11 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
       zip[bCrc++] = zip[b++];
       zip[bCrc++] = zip[b++];
       b -= 4;
+
+      if (!abortDeflate) {
+        zip[bDeflate] = 8;  // set compression flag to 8 = deflate
+        compressedSize = b - compressedStart;
+      }
     }
 
     if (!attemptDeflate || abortDeflate) {
@@ -246,7 +243,7 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     const
       localHeaderOffset = localHeaderOffsets[fileIndex],
       fileName = filePaths[fileIndex],
-      fileNameSize = fileName.byteLength;
+      fileNameSize = fileName.length;
 
     // signature
     zip[b++] = 0x50; // P
@@ -254,16 +251,19 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
     zip[b++] = 0x01;
     zip[b++] = 0x02;
     // version created by
-    zip[b] = 20;  // 2.0
-    b += 2;  // 0 -> platform (MS-DOS)
+    zip[b++] = 20;  // 2.0
+    zip[b++] = 0;  // -> platform (MS-DOS)
     // version needed to extract
-    zip[b] = 20;  // 2.0
-    b += 2;  // 0
+    zip[b++] = 20;  // 2.0
+    zip[b++] = 0;
     // copy local header from [general purpose flag] to [extra field length]
     zip.set(zip.subarray(localHeaderOffset + 6, localHeaderOffset + 30), b);
-    // file comment length, disk number, internal attr, external attr
-    // 10 * 0
-    b += 34;
+    b += 24;
+    // file comment length (2b), disk number (2b), internal attr (2b), external attr (4b)
+    zip[b++] = zip[b++] =
+      zip[b++] = zip[b++] =
+      zip[b++] = zip[b++] =
+      zip[b++] = zip[b++] = zip[b++] = zip[b++] = 0;
     // local header offset
     zip[b++] = localHeaderOffset & 0xff;
     zip[b++] = (localHeaderOffset >> 8) & 0xff;
@@ -279,16 +279,16 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
   zip[b++] = 0x50; // P
   zip[b++] = 0x4b; // K
   zip[b++] = 0x05;
-  zip[b] = 0x06;
+  zip[b++] = 0x06;
   // disk numbers x 2
-  // 4 * 0
-  b += 5;
+  zip[b++] = zip[b++] =
+    zip[b++] = zip[b++] = 0;
   // disk entries
   zip[b++] = numFiles & 0xff;
-  zip[b++] = (numFiles >> 8) & 0xff;
+  zip[b++] = numFiles >> 8;
   // total entries
   zip[b++] = numFiles & 0xff;
-  zip[b++] = (numFiles >> 8) & 0xff;
+  zip[b++] = numFiles >> 8;
   // central directory size
   zip[b++] = centralDirectorySize & 0xff;
   zip[b++] = (centralDirectorySize >> 8) & 0xff;
@@ -298,10 +298,9 @@ export async function createZip(inputFiles: File[], compressWhenPossible = true,
   zip[b++] = centralDirectoryOffset & 0xff;
   zip[b++] = (centralDirectoryOffset >> 8) & 0xff;
   zip[b++] = (centralDirectoryOffset >> 16) & 0xff;
-  zip[b] = (centralDirectoryOffset >> 24);
+  zip[b++] = (centralDirectoryOffset >> 24);
   // comment length
-  // 0 
-  // 0
+  zip[b++] = zip[b++] = 0;
 
-  return zip.subarray(0, b + 3);
+  return zip.subarray(0, b);
 }
