@@ -1,6 +1,6 @@
 {
   "name": "littlezip",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Extremely simple .zip file creation with no dependencies",
   "files": [
     "index.js",
