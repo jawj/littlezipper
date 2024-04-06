@@ -1,4 +1,4 @@
-# littlezip
+# littlezipper
 
 This project uses the `CompressionStream` facility — supported by all recent browsers, Node and Deno — to create `.zip` files.
 
@@ -15,7 +15,7 @@ Potential future improvements could include implementing a `TransformStream` ins
 ## Installation
 
 ```bash
-npm install littlezip
+npm install littlezipper
 ```
 
 ## Usage
@@ -23,7 +23,7 @@ npm install littlezip
 The library exposes a single function, `createZip`.
 
 ```typescript
-import { createZip } from 'littlezip'; 
+import { createZip } from 'littlezipper'; 
 
 const zip = await createZip([
   { path: 'test.txt', data: 'This is a test', lastModified: new Date('2020-01-01T00:00:00') },

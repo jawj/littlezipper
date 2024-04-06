@@ -1,5 +1,5 @@
 /**
- * littlezip
+ * littlezipper
  * Copyright (C) George MacKerron 2024
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");

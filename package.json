@@ -1,5 +1,5 @@
 {
-  "name": "littlezip",
+  "name": "littlezipper",
   "version": "0.1.4",
   "description": "Extremely simple .zip file creation with no dependencies",
   "files": [
@@ -33,6 +33,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jawj/littlezip"
+    "url": "https://github.com/jawj/littlezipper"
   }
 }
