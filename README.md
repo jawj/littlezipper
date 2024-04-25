@@ -37,4 +37,4 @@ The optional second argument defines whether we attempt to deflate the data (def
 
 ## License
 
-[MIT licensed](LICENSE).
+[Apache License, Version 2.0](LICENSE).
