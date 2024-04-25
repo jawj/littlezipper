@@ -35,3 +35,6 @@ The first argument to `createZip` is an array of file entries. Each entry must h
 
 The optional second argument defines whether we attempt to deflate the data (default: `true`). If `false`, the resulting `.zip` file will be as large as the input data plus a few bytes for headers.
 
+## License
+
+[MIT licensed](LICENSE).
