@@ -22,7 +22,7 @@
 
 import { crc32 } from './crc32';
 
-export interface File {
+export interface UncompressedFile {
   path: string;
   data: string | ArrayBuffer | Uint8Array;
   lastModified?: Date;
@@ -30,7 +30,7 @@ export interface File {
 
 const
   hasCompressionStreams = typeof CompressionStream !== 'undefined',
-  textEncoder = new TextEncoder(),
+  te = new TextEncoder(),
   lengthSum = (ns: Uint8Array[]) => ns.reduce((memo, n) => memo + n.length, 0),
   ui8 = Uint8Array;
 
@@ -45,14 +45,14 @@ function makeGzipReadFn(dataIn: Uint8Array) {
   return () => reader.read();
 }
 
-export async function createZip(inputFiles: File[], compressWhenPossible = true, gzipReadFn = makeGzipReadFn) {
+export async function createZip(inputFiles: UncompressedFile[], compressWhenPossible = true, gzipReadFn = makeGzipReadFn) {
   const
     localHeaderOffsets = [],
     attemptDeflate = hasCompressionStreams && compressWhenPossible,
     numFiles = inputFiles.length,
-    filePaths = inputFiles.map(file => textEncoder.encode(file.path)),
+    filePaths = inputFiles.map(file => te.encode(file.path)),
     fileData = inputFiles.map(({ data }) =>
-      typeof data === 'string' ? textEncoder.encode(data) :
+      typeof data === 'string' ? te.encode(data) :
         data instanceof ArrayBuffer ? new ui8(data) : data),
     totalDataSize = lengthSum(fileData),
     totalFilePathsSize = lengthSum(filePaths),

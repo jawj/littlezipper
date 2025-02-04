@@ -18,30 +18,26 @@ var init = () => {
   }
   for (n = 0; n < 256; n++) {
     v = T0[n];
-    for (c = 256 + n; c < 4096; c += 256)
-      v = t[c] = v >>> 8 ^ T0[v & 255];
+    for (c = 256 + n; c < 4096; c += 256) v = t[c] = v >>> 8 ^ T0[v & 255];
   }
   T = [T0];
-  for (n = 1; n < 16; n++)
-    T[n] = t.subarray(n * 256, (n + 1) * 256);
+  for (n = 1; n < 16; n++) T[n] = t.subarray(n * 256, (n + 1) * 256);
 };
 var crc32 = (B, seed = 0) => {
-  if (!T)
-    init();
+  if (!T) init();
   const [T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, Ta, Tb, Tc, Td, Te, Tf] = T;
   let crc = seed ^ -1, l = B.length - 15, i = 0;
-  for (; i < l; )
-    crc = Tf[B[i++] ^ crc & 255] ^ Te[B[i++] ^ crc >> 8 & 255] ^ Td[B[i++] ^ crc >> 16 & 255] ^ Tc[B[i++] ^ crc >>> 24] ^ Tb[B[i++]] ^ Ta[B[i++]] ^ T9[B[i++]] ^ T8[B[i++]] ^ T7[B[i++]] ^ T6[B[i++]] ^ T5[B[i++]] ^ T4[B[i++]] ^ T3[B[i++]] ^ T2[B[i++]] ^ T1[B[i++]] ^ T0[B[i++]];
+  for (; i < l; ) crc = Tf[B[i++] ^ crc & 255] ^ Te[B[i++] ^ crc >> 8 & 255] ^ Td[B[i++] ^ crc >> 16 & 255] ^ Tc[B[i++] ^ crc >>> 24] ^ Tb[B[i++]] ^ Ta[B[i++]] ^ T9[B[i++]] ^ T8[B[i++]] ^ T7[B[i++]] ^ T6[B[i++]] ^ T5[B[i++]] ^ T4[B[i++]] ^ T3[B[i++]] ^ T2[B[i++]] ^ T1[B[i++]] ^ T0[B[i++]];
   l += 15;
-  while (i < l)
-    crc = crc >>> 8 ^ T0[(crc ^ B[i++]) & 255];
+  while (i < l) crc = crc >>> 8 ^ T0[(crc ^ B[i++]) & 255];
   return ~crc;
 };
 
 // index.ts
 var hasCompressionStreams = typeof CompressionStream !== "undefined";
-var textEncoder = new TextEncoder();
+var te = new TextEncoder();
 var lengthSum = (ns) => ns.reduce((memo, n) => memo + n.length, 0);
+var ui8 = Uint8Array;
 function makeGzipReadFn(dataIn) {
   const cs = new CompressionStream("gzip"), writer = cs.writable.getWriter(), reader = cs.readable.getReader();
   writer.write(dataIn);
@@ -49,11 +45,11 @@ function makeGzipReadFn(dataIn) {
   return () => reader.read();
 }
 async function createZip(inputFiles, compressWhenPossible = true, gzipReadFn = makeGzipReadFn) {
-  const localHeaderOffsets = [], attemptDeflate = hasCompressionStreams && compressWhenPossible, numFiles = inputFiles.length, filePaths = inputFiles.map((file) => textEncoder.encode(file.path)), fileData = inputFiles.map(({ data }) => typeof data === "string" ? textEncoder.encode(data) : data instanceof ArrayBuffer ? new Uint8Array(data) : data), totalDataSize = lengthSum(fileData), totalFilePathsSize = lengthSum(filePaths), centralDirectorySize = numFiles * 46 + totalFilePathsSize, maxZipSize = totalDataSize + numFiles * 30 + totalFilePathsSize + centralDirectorySize + 22, now = /* @__PURE__ */ new Date(), zip = new Uint8Array(maxZipSize);
+  const localHeaderOffsets = [], attemptDeflate = hasCompressionStreams && compressWhenPossible, numFiles = inputFiles.length, filePaths = inputFiles.map((file) => te.encode(file.path)), fileData = inputFiles.map(({ data }) => typeof data === "string" ? te.encode(data) : data instanceof ArrayBuffer ? new ui8(data) : data), totalDataSize = lengthSum(fileData), totalFilePathsSize = lengthSum(filePaths), centralDirectorySize = numFiles * 46 + totalFilePathsSize, maxZipSize = totalDataSize + numFiles * 30 + totalFilePathsSize + centralDirectorySize + 22, now = /* @__PURE__ */ new Date(), zip = new ui8(maxZipSize);
   let b = 0;
   for (let fileIndex = 0; fileIndex < numFiles; fileIndex++) {
     localHeaderOffsets[fileIndex] = b;
-    const fileName = filePaths[fileIndex], fileNameSize = fileName.length, uncompressed = fileData[fileIndex], uncompressedSize = uncompressed.length, lm = inputFiles[fileIndex].lastModified ?? now, mtime = Math.floor(lm.getSeconds() / 2) + (lm.getMinutes() << 5) + (lm.getHours() << 11), mdate = lm.getDate() + (lm.getMonth() + 1 << 5) + (lm.getFullYear() - 1980 << 9);
+    const filePath = filePaths[fileIndex], filePathSize = filePath.length, uncompressed = fileData[fileIndex], uncompressedSize = uncompressed.length, lm = inputFiles[fileIndex].lastModified ?? now, mtime = (lm.getSeconds() / 2 | 0) + (lm.getMinutes() << 5) + (lm.getHours() << 11), mdate = lm.getDate() + (lm.getMonth() + 1 << 5) + (lm.getFullYear() - 1980 << 9);
     let compressedSize = 0, abortDeflate = false;
     zip[b++] = 80;
     zip[b++] = 75;
@@ -64,8 +60,7 @@ async function createZip(inputFiles, compressWhenPossible = true, gzipReadFn = m
     zip[b++] = 0;
     zip[b++] = 8;
     const bDeflate = b;
-    zip[b++] = 0;
-    zip[b++] = 0;
+    zip[b++] = zip[b++] = 0;
     zip[b++] = mtime & 255;
     zip[b++] = mtime >> 8;
     zip[b++] = mdate & 255;
@@ -76,20 +71,18 @@ async function createZip(inputFiles, compressWhenPossible = true, gzipReadFn = m
     zip[b++] = uncompressedSize >> 8 & 255;
     zip[b++] = uncompressedSize >> 16 & 255;
     zip[b++] = uncompressedSize >> 24;
-    zip[b++] = fileNameSize & 255;
-    zip[b++] = fileNameSize >> 8 & 255;
-    zip[b++] = 0;
-    zip[b++] = 0;
-    zip.set(fileName, b);
-    b += fileNameSize;
+    zip[b++] = filePathSize & 255;
+    zip[b++] = filePathSize >> 8;
+    zip[b++] = zip[b++] = 0;
+    zip.set(filePath, b);
+    b += filePathSize;
     if (attemptDeflate) {
       const compressedStart = b, read = gzipReadFn(uncompressed);
       let bytes, bytesStartOffset = 0, bytesEndOffset = 0;
       deflate: {
         for (; ; ) {
           const data = await read();
-          if (data.done)
-            throw new Error("Bad gzip data");
+          if (data.done) throw new Error("Bad gzip data");
           bytes = data.value;
           bytesStartOffset = bytesEndOffset;
           bytesEndOffset = bytesStartOffset + bytes.length;
@@ -114,8 +107,7 @@ async function createZip(inputFiles, compressWhenPossible = true, gzipReadFn = m
           zip.set(bytes, b);
           b += bytesLength;
           const data = await read();
-          if (data.done)
-            break;
+          if (data.done) break;
           bytes = data.value;
         }
       }
@@ -127,8 +119,7 @@ async function createZip(inputFiles, compressWhenPossible = true, gzipReadFn = m
             zip[b++] = i < copyBytes ? zip[bPrev - copyBytes + i] : bytes[bytesLength - 8 + i];
           }
           const data = await read();
-          if (data.done)
-            break;
+          if (data.done) break;
           bytes = data.value;
         }
       }
@@ -187,9 +178,9 @@ async function createZip(inputFiles, compressWhenPossible = true, gzipReadFn = m
   zip[b++] = 6;
   zip[b++] = zip[b++] = zip[b++] = zip[b++] = 0;
   zip[b++] = numFiles & 255;
-  zip[b++] = numFiles >> 8 & 255;
+  zip[b++] = numFiles >> 8;
   zip[b++] = numFiles & 255;
-  zip[b++] = numFiles >> 8 & 255;
+  zip[b++] = numFiles >> 8;
   zip[b++] = centralDirectorySize & 255;
   zip[b++] = centralDirectorySize >> 8 & 255;
   zip[b++] = centralDirectorySize >> 16 & 255;

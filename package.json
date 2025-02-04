@@ -27,8 +27,8 @@
   "author": "George MacKerron",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.11.24",
-    "esbuild": "^0.20.1",
+    "@types/node": "^22.13.1",
+    "esbuild": "^0.24.2",
     "typescript": "^5.3.3"
   },
   "repository": {
