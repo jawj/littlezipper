@@ -1,6 +1,6 @@
 # littlezipper
 
-This project uses the `CompressionStream` API — supported by all recent browsers, Node and Deno — to create `.zip` files.
+This project uses the `CompressionStream` API — supported by all recent browsers, Node, Deno [and now Bun](https://bun.com/blog/bun-v1.3.3#compressionstream-and-decompressionstream) — to create `.zip` files.
 
 This is not wholly trivial since, a little frustratingly, `CompressionStream` can natively produce `.gz` format data but not `.zip`. Thus, we pick out both the deflated data and the CRC from the `.gz` stream, and write them into a `.zip` file instead.
 
