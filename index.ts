@@ -60,7 +60,7 @@ export async function createZip(inputFiles: UncompressedFile[], compressWhenPoss
     // if deflate expands the data, which can happen, we just stick it in uncompressed, so the uncompressed size is worst case
     maxZipSize = totalDataSize
       + numFiles * 30 + totalFilePathsSize  // local headers
-      + centralDirectorySize + 22,  // 22 = cental directory trailer
+      + centralDirectorySize + 22,  // 22 = central directory trailer
     now = new Date(),
     zip = new ui8(maxZipSize);
 
